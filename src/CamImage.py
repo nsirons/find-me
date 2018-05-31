@@ -80,11 +80,6 @@ class CamImage:
     def bgr(self):
         return np.copy(self.__rgb[:,:,::-1])
 
-    # TODO: FIX IT
-    def color_hist(self, rect, color="rgb"):
-        if color != 'rgb':
-            hsv = cv2.cvtColor(self.__rgb, cv2.COLOR_RGB2HSV)
-            plt.hist()
 
     # TODO: FIX IT
     def pre_filt(self):
