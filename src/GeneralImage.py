@@ -1,6 +1,7 @@
 import cv2
 from functools import lru_cache
 import matplotlib.pyplot as plt
+import numpy as np
 
 
 class GeneralImage:
@@ -13,19 +14,19 @@ class GeneralImage:
 
     @lru_cache(maxsize=None)
     def rgb(self):
-        return self.__img[:, :, ::-1]
+        return np.copy(self.__img[:, :, ::-1])
 
     @lru_cache(maxsize=None)
     def bgr(self):
-        return self.__img
+        return np.copy(self.__img)
 
     @lru_cache(maxsize=None)
     def gray(self):
-        return cv2.cvtColor(self.__img, cv2.COLOR_BGR2GRAY)
+        return np.copy(cv2.cvtColor(self.__img, cv2.COLOR_BGR2GRAY))
 
     @lru_cache(maxsize=None)
     def hsv(self):
-        return cv2.cvtColor(self.__img, cv2.COLOR_BGR2HSV)
+        return np.copy(cv2.cvtColor(self.__img, cv2.COLOR_BGR2HSV))
 
     def color_stats(self, cmap='rgb', rect=(0, 0, 100, 150)):  # TODO: Fix for gray (if needed)
         labels = {'bgr': ('blue', 'green', 'red'), 'rgb': ('red', 'green', 'blue'),
@@ -71,5 +72,23 @@ if __name__ == '__main__':
     path = "data/Cyberzoo/img_00000.jpg"
     gi = GeneralImage(path)
     # gi.color_stats('rgb', (150, 100, 50, 50))
-    gi.edge_stats()
+    # gi.edge_stats()
     # gi.show_img()
+    # print(gi.rgb())
+    # cv2.line(gi.rgb(),(10,10),(50,50), (255,0,0))
+    # plt.imshow(gi.rgb())
+    # plt.show()
+    # TODO: plotting
+    # data_x = []
+    # data_y = []
+    # for i in range(gi.get_size()[0]):
+    #     data_x.append(np.sum(np.logical_or(gi.hsv()[i,:, 0] < 20 , gi.hsv()[i,:, 0] > 165)) / gi.get_size()[0])
+    # for i in range(gi.get_size()[1]):
+    #     data_y.append(np.sum(np.logical_or(gi.hsv()[:,i, 0] < 20 , gi.hsv()[:,i, 0] > 165)) / gi.get_size()[1])
+    # plt.subplot(211)
+    # plt.plot(data_x, label='x')
+    # plt.plot(data_y, label='y')
+    # plt.legend()
+    # plt.subplot(212)
+    # plt.imshow(gi.hsv())
+    # plt.show()

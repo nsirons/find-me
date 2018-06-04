@@ -18,7 +18,7 @@ class CamImage:
         self.__w = None
         self.__h = None
         self.__h_per_pixel = None
-        self.bytes_per_pixel = None
+        self.__bytes_per_pixel = None
         self.__data = None
         self.__rgb = None
         self.load()
@@ -32,7 +32,7 @@ class CamImage:
 
     def load(self):
         # Assume this standard header
-        self.__h, self.__w, self.__h_per_pixel, self.bytes_per_pixel = map(int, np.fromfile(self.__path, dtype=np.uint16, count=4))
+        self.__h, self.__w, self.__h_per_pixel, self.__bytes_per_pixel = map(int, np.fromfile(self.__path, dtype=np.uint16, count=4))
         self.__data = np.fromfile(self.__path, dtype=np.uint8)[8::].reshape((self.__w, self.__h))
         Y = self.__data[:, 1::2]
         U = self.__data[:, 0::4]
@@ -70,7 +70,7 @@ class CamImage:
 
     @lru_cache(maxsize=None)
     def gray(self):
-        return cv2.cvtColor(self.__rgb, cv2.COLOR_RGB2GRAY)
+        return np.copy(cv2.cvtColor(self.__rgb, cv2.COLOR_RGB2GRAY))
 
     @lru_cache(maxsize=None)
     def rgb(self):

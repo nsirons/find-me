@@ -2,14 +2,14 @@ from CamImage import CamImage  # fix this error?
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
-
+from GeneralImage import GeneralImage
 
 class FeatureBasedTest:
     """
     FeatureBasedTest class is used to test different feature based approaches to detect gates
     """
     def __init__(self, path):
-        self.img = CamImage(path)
+        self.img = GeneralImage(path)
 
 
     # TODO: for harris and shi cut the image at the region where the gate is present?
@@ -27,19 +27,19 @@ class FeatureBasedTest:
 
     def shi_tomasi_corner(self):
         gray = self.img.gray()
-        img = self.img.rgb()
+        img = np.copy(self.img.rgb())
         corners = cv2.goodFeaturesToTrack(gray, 25, 0.5, 20)
         corners = np.int0(corners)
 
         for i in corners:
             x, y = i.ravel()
-            cv2.circle(img, (x, y), 3, 255, -1)
+            cv2.circle(img, (x, y), 10, (255,0,0), 4)
 
         plt.imshow(img), plt.show()
 
     def sift(self):
 
-        img = self.img.rgb()
+        img = np.copy(self.img.rgb())
         gray = self.img.gray()
 
         sift = cv2.xfeatures2d.SIFT_create()
@@ -53,13 +53,13 @@ class FeatureBasedTest:
 
     def surf(self):
         # img = self.img.rgb()
-        gray = self.img.gray()
+        gray = np.copy(self.img.gray())
 
         surf = cv2.xfeatures2d.SURF_create(100)
         # kp, des = surf.detectAndCompute(gray, None)
-        surf.setHessianThreshold(200,   300)
+        surf.setHessianThreshold(20000)
         kp, des = surf.detectAndCompute(gray, None)
-        img2 = cv2.circle(gray, kp, None, (255, 0, 0), 4)
+        img2 = cv2.drawKeypoints(gray, kp, 6, (255, 0, 0), 4)
         plt.imshow(img2, cmap='gray'), plt.show()
 
     def canny_edge(self):
@@ -67,12 +67,14 @@ class FeatureBasedTest:
         plt.imshow(edges)
         plt.show()
 
+
 if __name__ == "__main__":
-    path = "data/qcif90/img_00020.raw"
+    path = "data/cad_renders_dist/img_0_blur_10.jpg"
     fbt = FeatureBasedTest(path)
     # fbt.harris_corner()
+    fbt.shi_tomasi_corner()
     # print(cv2.xfeatures2d)
     # fbt.shi_tomasi_corner()
     # fbt.sift()
     # fbt.surf()
-    fbt.canny_edge()
+    # fbt.canny_edge()
