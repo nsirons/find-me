@@ -1,0 +1,241 @@
+import cv2
+import numpy as np
+from matplotlib import pyplot as plt
+import math
+import os
+
+
+def draw_point(img, points, thick = 5, color = (0,0, 255)):
+    points = np.array(points, dtype=int)
+    img_copy = np.copy(img)
+    for i in range(len(points)):
+        cv2.circle(img_copy, (points[i][0], points[i][1]), thick, color, -1)
+    img_copy = cv2.cvtColor(img_copy, cv2.COLOR_BGR2RGB)
+    return img_copy
+
+
+def draw_line(img, lines, point_num=None):
+    img_copy = np.copy(img)
+    point_num = point_num
+    for i, line in enumerate(lines):
+        if point_num is not None:
+            # print(line[0],i)
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            cv2.putText(img_copy, str(i), line[1], font, 1, (255, 0, 0), 2, cv2.LINE_AA)
+        cv2.line(img_copy, line[0], line[1], (0, 0, 255), 2, cv2.LINE_AA)
+
+    img_copy = cv2.cvtColor(img_copy, cv2.COLOR_BGR2RGB)
+    return img_copy
+
+
+def harris(img):
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    gray = np.float32(gray)
+    dst = cv2.cornerHarris(gray, 2, 3, 0.04)
+    dst = cv2.dilate(dst, None)
+    ret, dst = cv2.threshold(dst, 0.01 * dst.max(), 255, 0)
+    dst = np.uint8(dst)
+
+    # find centroids
+    ret, labels, stats, centroids = cv2.connectedComponentsWithStats(dst)
+
+    # define the criteria to stop and refine the corners
+    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.001)
+    corners = cv2.cornerSubPix(gray, np.float32(centroids), (5, 5), (-1, -1), criteria)
+
+    # Now draw them
+    res = np.hstack((centroids, corners))
+    res = np.array(res, dtype=int)
+    points = res[:, 0:2]
+    return points
+
+
+def hough_transform(img, tune_params):
+    # gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    edges = cv2.Canny(img, tune_params[0][0], tune_params[0][1], None, 3)
+    point_seq = []
+    'Standard Hough Transform'
+    lines = cv2.HoughLines(edges, tune_params[1][0], tune_params[1][1], tune_params[1][2], None, 0, 0)
+    if lines is not None:
+        for i in range(len(lines)):
+            rho = lines[i][0][0]
+            theta = lines[i][0][1]
+            a = math.cos(theta)
+            b = math.sin(theta)
+            x0 = a * rho
+            y0 = b * rho
+            pt1 = (int(x0 + 1000 * (-b)), int(y0 + 1000 * (a)))
+            pt2 = (int(x0 - 1000 * (-b)), int(y0 - 1000 * (a)))
+            # cv2.line(img, pt1, pt2, (0, 0, 255), 1, cv2.LINE_AA)
+            point_seq.append([pt1, pt2])
+
+    # cv2.imwrite('hough_output.jpg', img)
+    #
+    'Probabilistic Hough Transform'
+    # reallines =[]
+    # linesP = cv2.HoughLinesP(edges, 1, np.pi / 180, 50, minLineLength=500, maxLineGap=1)
+    # for x1, y1, x2, y2 in linesP[0]:
+    #     reallines.append([[x1, y1], [x2, y2]])
+
+    return point_seq
+
+
+def hough_harris(lines, corners):
+    corn_upd = []
+    for i in range(len(corners)):
+        for points in lines:
+            m = (points[1][1] - points[0][1]) / (points[1][0] - points[0][0] + 1)
+            pt_y = abs(points[0][1] + m * (corners[i][0] - points[0][0]))
+            pt_x = abs((pt_y - points[0][1]) / (m + 1) + points[0][0])
+            if abs(corners[i][1] - pt_y) < 100 and abs(corners[i][0] - pt_x) < 100:
+                corn_upd.append(corners[i])
+                break
+
+    return corn_upd
+
+
+def clean_corners(corners):
+    corners_upd = []
+    neighbors = int(0.03 * corners.shape[0])
+    while corners.shape[0] > 0:
+        point = corners[0, :]
+        corners = np.delete(corners, [0], 0)
+        new_corners = np.array([[point[0], point[1]]])
+        for other_point in corners:
+            if np.linalg.norm(other_point - point) < 50:
+                new_corners = np.append(new_corners, [other_point], axis=0)
+
+        if new_corners.shape[0] > neighbors:
+            corners_upd.append([np.mean(new_corners[:, 0]), np.mean(new_corners[:, 1])])
+            for corner in new_corners[neighbors:, :]:
+                corners = np.delete(corners, np.where(corners == corner)[0], 0)
+    # corners_upd = np.array(corners_upd)
+
+    return corners_upd
+
+
+def neighbor(start_point, points, radius_thresh):
+    prev_radius = radius_thresh
+    next_neighbor = None
+    # points = np.delete(points, np.where(points == start_point)[0], 0)
+    for other_point in points:
+        radius = np.linalg.norm(start_point - other_point)
+        if radius < prev_radius:
+            next_neighbor = other_point
+            prev_radius = radius
+
+    return next_neighbor
+
+
+def slope(start, second):
+    return math.degrees(math.atan(abs((second[1] - start[1]) / (second[0] - start[0]+0.1))))
+
+
+def gradients_lines(corners, radius_thresh):
+    corner_gate = []
+    lines = []
+    cur_slope = 0
+    points = np.copy(corners)
+    point = points[0]
+    start_point = point
+    points = np.delete(points, [0], 0)
+    corner = 0
+    while len(points) != 1:
+        next_point = neighbor(point, points, radius_thresh)
+        # if no elements are found within radius_tresh then delete and look for first point in list
+        if next_point is None:
+            points = np.delete(points, np.where(points == point)[0], 0)
+            if len(points) != 0:
+                point = points[0]
+        else:
+            m = slope(point, next_point)
+            print(abs(cur_slope - m), next_point, point, m)
+            if abs(cur_slope - m) > 50:
+                # corner found
+                corner_gate.append(point)
+                cur_slope = m
+                print("CORNER:", point)
+
+            lines.append([tuple(map(int, point)), tuple(map(int, next_point))])
+            point = next_point  # variable is kept with this value till following iter
+            points = np.delete(points, np.where(points == point)[0], 0)
+    last_point = lines[-1][1]
+    start_point = lines[0][0]
+    m = slope(last_point, start_point)
+    if abs(cur_slope - m) > 50:
+        # corner found
+        corner_gate.append(last_point)
+        cur_slope = m
+        print("CORNER:", point)
+    lines.append([tuple(map(int, last_point)), tuple(map(int, start_point))])
+    return lines, corner_gate
+
+
+
+def draw_gate(corners):
+    arguments = list(np.argsort(np.linalg.norm(corners[0] - corners[1:], axis=1)))
+    indices = [0] + [i + 1 for i in arguments]
+    lines_upd = []
+    for i in indices:
+        lines_upd.append([tuple(corners[i]), tuple(corners[(i + 1) % len(indices)])])
+    return lines_upd
+
+#implement matteo's method
+# def find_lines(corners):
+#     point = corners[0]
+#     start_point = point
+#     corners = np.delete(corners, [0], 0)
+#     while len(corners)!=1:
+#
+#         if abs(point[0] - corners[i][0]) <0:
+
+
+if __name__ == "__main__":
+    base_path = os.path.dirname(os.path.realpath(__file__))
+    img_dir = os.path.join(base_path, 'cad_renders_dist\img_3_blur_10.jpg')
+    img = cv2.imread(img_dir)
+    # img = cv2.imread("diff_gate.jpg")
+    edges_res = (200, 200)
+    rho_res = 5
+    theta_res = np.pi / 180
+    line_res = 94  # pixels
+    hough_res = [rho_res, theta_res, line_res]
+    tune_params = np.array([edges_res, hough_res])
+    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+    harris_corners = harris(img)
+    harris_img = draw_point(img, harris_corners)
+
+    hough_lines = hough_transform(img, tune_params)
+    hough_img = draw_line(img, hough_lines)
+
+    polished_corners = clean_corners(harris_corners)
+    polished_img = draw_point(img, polished_corners)
+
+    new_corners = hough_harris(hough_lines, polished_corners)
+    new_corns = draw_point(img, new_corners)
+
+    gradients, corners_gate = gradients_lines(polished_corners, 200)
+    gradients_img = draw_line(img, gradients, point_num=1)
+    gradients_img = draw_point(gradients_img, corners_gate, thick= 20, color=(255,255,255))
+    # gate_lines = draw_gate(np.array(new_corners, dtype=int))
+    # gate =  draw_line(img,gate_lines)
+
+    'Plotter'
+    plot = True
+    if plot:
+    # Plot nr 1
+        plt.subplot(121)
+        plt.imshow(hough_img)
+        plt.subplot(122)
+        plt.imshow(harris_img)
+        plt.show()
+
+        # Plot nr 2
+        plt.subplot(121)
+        plt.imshow(gradients_img)
+
+        plt.subplot(122)
+        plt.imshow(polished_img)
+
+        plt.show()
