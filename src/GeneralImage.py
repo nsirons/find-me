@@ -2,10 +2,13 @@ import cv2
 from functools import lru_cache
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 
 
 class GeneralImage:
     def __init__(self, path):
+        if not os.path.exists(path):
+            raise FileNotFoundError("Invalid path: {}".format(path))
         self.__img = cv2.imread(path)
 
     @lru_cache(maxsize=None)
@@ -59,7 +62,9 @@ class GeneralImage:
         sobely = cv2.Sobel(self.gray(), cv2.CV_64F, 0, 1, ksize=19)
         plt.subplot(2, 2, 1), plt.imshow(self.__img, cmap='gray')
         plt.title('Original'), plt.xticks([]), plt.yticks([])
-        plt.subplot(2, 2, 2), plt.imshow(laplacian, cmap='gray')
+        b, a= cv2.threshold(laplacian, 30, 255, cv2.THRESH_BINARY_INV)
+        print(a, np.max(laplacian), np.max(a))
+        plt.subplot(2, 2, 2), plt.imshow(a, cmap='gray')
         plt.title('Laplacian'), plt.xticks([]), plt.yticks([])
         plt.subplot(2, 2, 3), plt.imshow(sobelx, cmap='gray')
         plt.title('Sobel X'), plt.xticks([]), plt.yticks([])
@@ -69,8 +74,10 @@ class GeneralImage:
         # cv2.Canny(self.__img,)
 
 if __name__ == '__main__':
-    path = "data/Cyberzoo/img_00000.jpg"
+    path = "../data/cad_renders2/GateRenders_0041.jpg"
     gi = GeneralImage(path)
+    gi.edge_stats()
+    plt.show()
     # gi.color_stats('rgb', (150, 100, 50, 50))
     # gi.edge_stats()
     # gi.show_img()
