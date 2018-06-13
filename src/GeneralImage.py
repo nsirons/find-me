@@ -58,13 +58,13 @@ class GeneralImage:
     # TODO: remove later, used for get information about edges on the image
     def edge_stats(self):
         laplacian = cv2.Laplacian(self.gray(), cv2.CV_64F)
-        sobelx = cv2.Sobel(self.gray(), cv2.CV_64F, 1, 0, ksize=19)
-        sobely = cv2.Sobel(self.gray(), cv2.CV_64F, 0, 1, ksize=19)
+        sobelx = cv2.Sobel(self.gray(), cv2.CV_64F, 1, 0, ksize=3)
+        sobely = cv2.Sobel(self.gray(), cv2.CV_64F, 0, 1, ksize=3)
         plt.subplot(2, 2, 1), plt.imshow(self.__img, cmap='gray')
         plt.title('Original'), plt.xticks([]), plt.yticks([])
-        b, a= cv2.threshold(laplacian, 30, 255, cv2.THRESH_BINARY_INV)
-        print(a, np.max(laplacian), np.max(a))
-        plt.subplot(2, 2, 2), plt.imshow(a, cmap='gray')
+        # b, a= cv2.threshold(laplacian, 30, 255, cv2.THRESH_BINARY_INV)
+        # print(a, np.max(laplacian), np.max(a))
+        plt.subplot(2, 2, 2), plt.imshow(laplacian, cmap='gray')
         plt.title('Laplacian'), plt.xticks([]), plt.yticks([])
         plt.subplot(2, 2, 3), plt.imshow(sobelx, cmap='gray')
         plt.title('Sobel X'), plt.xticks([]), plt.yticks([])

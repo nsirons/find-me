@@ -164,6 +164,8 @@ class FeatureBasedTempalte:
         img3 = cv2.drawMatches(img1, kp1, img2, kp2, matches[:10],img3, flags=2)
 
         plt.imshow(img3), plt.show()
+
+
 if __name__ == "__main__":
     path = "../data/gate_clean.jpeg"
     path2 = path

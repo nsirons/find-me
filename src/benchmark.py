@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import os
 import csv
 import numpy as np
-
+from itertools import product
 # TODO: Need to be tested
 # TODO: Strongly assumed to be sorted?
 
@@ -25,15 +25,29 @@ class Benchmark:
             reader = csv.DictReader(csvfile, dialect="excel-tab")
             for row in reader:
                 self.validation_data.append(row)
-        print(self.validation_data[0])
 
-    def test(self):
+    def test_batch(self, *args, **kwargs):
+        data = []
+        for combination in product(*args):
+            data.append(self.test(*combination, **kwargs))
+        return data
+
+    def test(self, *args, **kwargs):
+        if self.validation_data_path is None:
+            raise FileNotFoundError("Dataset is not loaded")
+        if True:
+            import progressbar
+            import time
+            bar = progressbar.ProgressBar(redirect_stdout=True,max_value=len(tuple(filter(lambda x: 'jpg' in x, os.listdir(self.validation_data_path)))))
+            print("Runing: ",args)
+            j = 0
+
         self.current_result = {}
         self.stats = {}
         counter = 0
         for i, file in enumerate(filter(lambda x: 'jpg' in x, sorted(os.listdir(self.validation_data_path)))):
             # if file[-3:] in ['png', 'jpg']:
-            corners = self.gate_detection_class.find_gate(os.path.join(self.validation_data_path, file))  # every class should have a function
+            corners = self.gate_detection_class.find_gate(os.path.join(self.validation_data_path, file), *args)  # every class should have a function
             gate_det, p0,p1,p2,p3 = corners
             self.current_result[i] = {}
             if int(self.validation_data[i]['gate']) == gate_det:
@@ -49,18 +63,27 @@ class Benchmark:
                 self.current_result[i]["y3"] = abs(p3[1] - float(self.validation_data[i]["y3"]))
             else:
                 self.current_result[i]["Gate detection"] = 0
-
+            if True:
+                j += 1
+                bar.update(j)
+        print("Ended Testing")
         # self.current_result["Gate detection"] /= len(self.validation_data)
         # for i in range(4):
         #     self.current_result["p{}".format(i)] /= len(self.validation_data)
         self.stats["gate"] = counter / i
-        mean_error = np.array([(i["x0"], i["x1"], i["x2"], i["x3"],
-                                i["y0"], i["y1"], i["y2"], i["y3"]) for i in self.current_result.values() if i["Gate detection"] ==1])
         self.stats["error"] = {}
-        self.stats["error"]["mean"] = np.mean(mean_error, axis=1)
-        self.stats["error"]["max"] = np.max(mean_error, axis=1)
-        self.stats["error"]["min"] = np.min(mean_error, axis=1)
-        print(mean_error)
+        if counter != 0:
+            mean_error = np.array([(i["x0"], i["x1"], i["x2"], i["x3"],
+                                    i["y0"], i["y1"], i["y2"], i["y3"]) for i in self.current_result.values() if i["Gate detection"] ==1])
+
+            self.stats["error"]["mean"] = np.mean(mean_error, axis=0)
+            self.stats["error"]["max"] = np.max(mean_error, axis=0)
+            self.stats["error"]["min"] = np.min(mean_error, axis=0)
+        else:
+            self.stats["error"]["mean"] = 0
+            self.stats["error"]["max"] = 0
+            self.stats["error"]["min"] = 0
+        return self.stats
 
     def get_stats(self):
         return self.current_result

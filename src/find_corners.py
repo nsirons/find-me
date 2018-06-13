@@ -32,6 +32,7 @@ M = np.array([[n / r, 0, 0, 0],
 #               [0, scale, 0, 0],
 #               [0, 0, -f / (f - n), -f * n / (f - n)],
 #               [0, 0, -1, 0]])
+
 # Gate rotation matrix
 rot_x = lambda alpha: np.array([[1, 0, 0],
                                 [0, np.cos(alpha), -np.sin(alpha)],
@@ -74,7 +75,6 @@ def generate_label_file(path, alphas, betas, Rs):
     my_c = 0
     for R in Rs:
         # Real gate coordinates definition. (0,0,0) - camera
-
 
         for alpha in alphas:
             j = 0
@@ -142,13 +142,13 @@ def generate_label_file(path, alphas, betas, Rs):
             csvwriter.writerow(label)
 
 if __name__ == "__main__":
-    path = "../data/cad_renders2"
+    path = "../data/cad_renders3"
     # path1 =  "data/ale_inputs"
     # alpha1= [0,45,90]
     # beta1 = [0,45,90]
     alpha = [0]
     beta = np.linspace(0, 90, 60)
-    R = [2]
+    R = [3]
     # generate_label_file(path, alpha, beta, R)
     generate_label_file(path, alpha, beta, R)
     # find_axis(path)
