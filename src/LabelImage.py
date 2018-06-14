@@ -3,7 +3,7 @@ import os
 import matplotlib.pyplot as plt
 import cv2
 
-
+# TODO: NOT USED ANYWERE (FOR NOW)
 class LabelImage:
     def __init__(self, dir_path):
         self.dir_path = dir_path

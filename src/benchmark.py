@@ -35,11 +35,11 @@ class Benchmark:
     def test(self, *args, **kwargs):
         if self.validation_data_path is None:
             raise FileNotFoundError("Dataset is not loaded")
-        if True:
+        print("Runing: ", args)
+        if False:
             import progressbar
             import time
             bar = progressbar.ProgressBar(redirect_stdout=True,max_value=len(tuple(filter(lambda x: 'jpg' in x, os.listdir(self.validation_data_path)))))
-            print("Runing: ",args)
             j = 0
 
         self.current_result = {}
@@ -48,7 +48,7 @@ class Benchmark:
         for i, file in enumerate(filter(lambda x: 'jpg' in x, sorted(os.listdir(self.validation_data_path)))):
             # if file[-3:] in ['png', 'jpg']:
             corners = self.gate_detection_class.find_gate(os.path.join(self.validation_data_path, file), *args)  # every class should have a function
-            gate_det, p0,p1,p2,p3 = corners
+            gate_det, p0, p1, p2, p3 = corners
             self.current_result[i] = {}
             if int(self.validation_data[i]['gate']) == gate_det:
                 counter += 1
@@ -63,7 +63,7 @@ class Benchmark:
                 self.current_result[i]["y3"] = abs(p3[1] - float(self.validation_data[i]["y3"]))
             else:
                 self.current_result[i]["Gate detection"] = 0
-            if True:
+            if False:
                 j += 1
                 bar.update(j)
         print("Ended Testing")
@@ -105,7 +105,7 @@ class Benchmark:
                "y2: {:3.3f}\t{:3.3f}\t{:3.3f}\n" \
                "y3: {:3.3f}\t{:3.3f}\t{:3.3f}\n". \
                     format(self.gate_detection_class.__class__.__name__,
-                       self.validation_data_path, self.stats["gate"]*100,
+                           self.validation_data_path, self.stats["gate"]*100,
                            self.stats["error"]["min"][0],self.stats["error"]["max"][0],self.stats["error"]["mean"][0],
                            self.stats["error"]["min"][1], self.stats["error"]["max"][1], self.stats["error"]["mean"][1],
                            self.stats["error"]["min"][2], self.stats["error"]["max"][2], self.stats["error"]["mean"][2],
@@ -114,6 +114,7 @@ class Benchmark:
                            self.stats["error"]["min"][5], self.stats["error"]["max"][5], self.stats["error"]["mean"][5],
                            self.stats["error"]["min"][6], self.stats["error"]["max"][6], self.stats["error"]["mean"][6],
                            self.stats["error"]["min"][7], self.stats["error"]["max"][7], self.stats["error"]["mean"][7])
+
 
 if __name__ == "__main__":
     path = "../data/cad_renders2"

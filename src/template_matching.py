@@ -55,7 +55,7 @@ class TemplateMatching:
     def test_many(self, path, methods=None, thresholds=None, save_name="TM_results.csv"):
 
         methods = self.methods if methods is None else methods
-        thresholds = np.arange(0.945, 0.985, 0.05) if thresholds is None else thresholds
+        thresholds = np.arange(0.945, 0.985, 0.5) if thresholds is None else thresholds
         b = Benchmark(deepcopy(self))
         b.load_data(path)
         data = b.test_batch(methods, thresholds, name="Template Matching")
@@ -72,12 +72,16 @@ class TemplateMatching:
                 for p in range(4):
                     for coord in ["x", "y"]:
                         fieldnames.append("{}_{}_{}".format(s,coord,p))
+
             csvwriter = csv.DictWriter(csvfile, fieldnames=fieldnames, delimiter="\t")
             csvwriter.writeheader()
+            conv = {'x':0, 'y':1}
             for stat in data:
-                row = [stat["gate"],]
+                row = {"gate": stat["gate"]}
                 for s in ['mean', 'max', 'min']:
-                    row += tuple(stat["error"][s])
+                    for p in range(4):
+                        for coord in ['x', 'y']:
+                            row["{}_{}_{}".format(s, coord, p)] = stat["error"][s][conv[coord]*4+p]
 
                 csvwriter.writerow(row)
 
@@ -164,7 +168,7 @@ class TemplateMatching:
             if '.jpg' in filename:
                 path_to_file = os.path.join(path, filename)
                 img = cv2.imread(path_to_file)
-                gd, c0, c1, c2, c3 = tm.find_gate(path_to_file)
+                gd, c0, c1, c2, c3 = tm.find_gate(path_to_file, "cv2.TM_CCORR_NORMED", 0.95)
 
                 cv2.rectangle(img, (c0[0]+self.w,) + (c0[1]+self.h,),
                                    (c0[0]-self.w,) + (c0[1]-self.h,), (255, 0, 0), thickness=3)
@@ -202,9 +206,10 @@ class TemplateMatching:
 
 
 if __name__ == "__main__":
-    path = "../data/cad_renders2"
+    path = "../data/cad_renders2_test"
     path_corners = "../data/corners"
     tm = TemplateMatching()
     tm.load_corners(path_corners)
-    tm.test_many(path)
+    # tm.animation(path)
+    tm.test_many(path, methods=["cv2.TM_CCOEFF_NORMED"])
     # tm.animation(path, True)
