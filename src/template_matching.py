@@ -85,10 +85,10 @@ class TemplateMatching:
 
                 csvwriter.writerow(row)
 
-    def find_gate(self, img, *args):
+    def find_gate(self, img_name, *args):
         method, threshold = args
         method = eval(method)
-        img = np.copy(cv2.imread(img, 0))
+        img = np.copy(cv2.imread(img_name, 0))
         corners = self.find_corners(img, self.corners["nominal"], method, threshold)
         gate_detected = self.find_gate_detected(corners)
 
@@ -111,7 +111,11 @@ class TemplateMatching:
     def find_corners(self, img, templates, method, threshold):
         corners = []
         for i, template in enumerate(templates):
-            res = cv2.matchTemplate(img, template, method)
+            try:
+                res = cv2.matchTemplate(img, template, method)
+            except TypeError:
+                print("Invalid img", img)
+                return False, (0, 0), (0, 0), (0, 0), (0, 0)
             min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
             top_left = max_loc if max_val > threshold else (0, 0)
             bottom_right = (top_left[0] + self.w, top_left[1] + self.h)

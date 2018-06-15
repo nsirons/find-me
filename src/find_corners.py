@@ -1,12 +1,12 @@
 import cv2
 import numpy as np
-from src.GeneralImage import GeneralImage
 import matplotlib.pyplot as plt
 import os
 from src.Renamed__img import ImagePreProc
+from shutil import copyfile
 
 import csv
-
+# TODO: Be able tochange Camera Center, shifts and rotations
 # http://www.songho.ca/opengl/gl_projectionmatrix.html - Clear explanation of Perspective Frustum
 # Gate information
 CAMERA_RES = (1280, 720)
@@ -74,64 +74,65 @@ def generate_label_file(path, ext, with_gate):
     stored_labels = []
     counter = 1
     img_lab = ImagePreProc()
-    img_lab.load(path, ext)
+    img_lab.load(path, ext, not bool(with_gate))
     selected = np.random.randint(0, len(img_lab), 9)
     for key in img_lab.get_images():
-        R = float(img_lab[key]['R'])
-        alpha = float(img_lab[key]['alpha'])
-        beta = float(img_lab[key]['beta'])
+        if with_gate:
+            R = float(img_lab[key]['R'])
+            alpha = float(img_lab[key]['alpha'])
+            beta = float(img_lab[key]['beta'])
 
-        SHIFT_X = 0.*np.sin(beta*2)
-        POINT_REAL1 = np.array([[GATE_WIDTH / 2 - SHIFT_X], [GATE_WIDTH / 2 - SHIFT_Y], [-R]])
-        POINT_REAL2 = np.array([[-GATE_WIDTH / 2 - SHIFT_X], [GATE_WIDTH / 2 - SHIFT_Y], [-R]])
-        POINT_REAL3 = np.array([[-GATE_WIDTH / 2 - SHIFT_X], [-GATE_WIDTH / 2 - SHIFT_Y], [-R]])
-        POINT_REAL4 = np.array([[GATE_WIDTH / 2 - SHIFT_X], [-GATE_WIDTH / 2 - SHIFT_Y], [-R]])
+            SHIFT_X = 0.*np.sin(beta*2)
+            POINT_REAL1 = np.array([[GATE_WIDTH / 2 - SHIFT_X], [GATE_WIDTH / 2 - SHIFT_Y], [-R]])
+            POINT_REAL2 = np.array([[-GATE_WIDTH / 2 - SHIFT_X], [GATE_WIDTH / 2 - SHIFT_Y], [-R]])
+            POINT_REAL3 = np.array([[-GATE_WIDTH / 2 - SHIFT_X], [-GATE_WIDTH / 2 - SHIFT_Y], [-R]])
+            POINT_REAL4 = np.array([[GATE_WIDTH / 2 - SHIFT_X], [-GATE_WIDTH / 2 - SHIFT_Y], [-R]])
 
-        x1, y1, z1 = get_corner(R,  alpha, beta, POINT_REAL1)
-        x2, y2, z2 = get_corner(R,  alpha, beta, POINT_REAL2)
-        x3, y3, z3 = get_corner(R,  alpha, beta, POINT_REAL3)
-        x4, y4, z4 = get_corner(R,  alpha, beta, POINT_REAL4)
-        # f = -R
-        # x1 = f * POINT_REAL1[0]/POINT_REAL1[2]
-        # x2 = f * POINT_REAL2[0] / POINT_REAL2[2]
-        # x3 = f * POINT_REAL3[0] / POINT_REAL3[2]
-        # x4 = f * POINT_REAL4[0] / POINT_REAL4[2]
-        # y1 = f * POINT_REAL1[1] / POINT_REAL1[2]
-        # y2 = f * POINT_REAL2[1] / POINT_REAL2[2]
-        # y3 = f * POINT_REAL3[1] / POINT_REAL3[2]
-        # y4 = f * POINT_REAL4[1] / POINT_REAL4[2]
-        xs = np.array([x1, x4, x3, x2, x1])
-        ys = np.array([y1, y4, y3, y2, y1])
+            x1, y1, z1 = get_corner(R,  alpha, beta, POINT_REAL1)
+            x2, y2, z2 = get_corner(R,  alpha, beta, POINT_REAL2)
+            x3, y3, z3 = get_corner(R,  alpha, beta, POINT_REAL3)
+            x4, y4, z4 = get_corner(R,  alpha, beta, POINT_REAL4)
+            # f = -R
+            # x1 = f * POINT_REAL1[0]/POINT_REAL1[2]
+            # x2 = f * POINT_REAL2[0] / POINT_REAL2[2]
+            # x3 = f * POINT_REAL3[0] / POINT_REAL3[2]
+            # x4 = f * POINT_REAL4[0] / POINT_REAL4[2]
+            # y1 = f * POINT_REAL1[1] / POINT_REAL1[2]
+            # y2 = f * POINT_REAL2[1] / POINT_REAL2[2]
+            # y3 = f * POINT_REAL3[1] / POINT_REAL3[2]
+            # y4 = f * POINT_REAL4[1] / POINT_REAL4[2]
+            xs = np.array([x1, x4, x3, x2, x1])
+            ys = np.array([y1, y4, y3, y2, y1])
 
-        xs = CAMERA_CENTER_PX[0] + xs*CAMERA_RES[0] / 2 # TODO: change name
-        ys = CAMERA_CENTER_PX[1] + ys*CAMERA_RES[1] / 2
+            xs = CAMERA_CENTER_PX[0] + xs*CAMERA_RES[0] / 2 # TODO: change name
+            ys = CAMERA_CENTER_PX[1] + ys*CAMERA_RES[1] / 2
 
-        stored_labels.append({"Name": img_lab[key]['name'], "R": R, "alpha": alpha, "beta":beta, "gate":int(with_gate)})   # TODO: change gate status for empty pictures
-        for i in range(4):
-            stored_labels[-1]["x{}".format(i)] = xs[i][0]
-            stored_labels[-1]["y{}".format(i)] = ys[i][0]
+            stored_labels.append({"Name": img_lab[key]['name'], "R": R, "alpha": alpha, "beta":beta, "gate":int(with_gate)})   # TODO: change gate status for empty pictures
+            for i in range(4):
+                stored_labels[-1]["x{}".format(i)] = xs[i][0]
+                stored_labels[-1]["y{}".format(i)] = ys[i][0]
 
+            if key in selected:
 
-        if key in selected:
+                plt.subplot(3, 3, counter)
 
-            plt.subplot(3, 3, counter)
+                plt.plot(xs, ys, color='red')
 
-            plt.plot(xs, ys, color='red')
+                font = cv2.FONT_HERSHEY_SIMPLEX
+                img = cv2.imread(os.path.join(path, img_lab[key]["name"]))
+                cv2.putText(img, 'c0', (xs[0], ys[0]), font, 4, (255, 255, 255), 2, cv2.LINE_AA)
+                cv2.putText(img, 'c1', (xs[1], ys[1]), font, 4, (255, 255, 255), 2, cv2.LINE_AA)
+                cv2.putText(img, 'c2', (xs[2], ys[2]), font, 4, (255, 255, 255), 2, cv2.LINE_AA)
+                cv2.putText(img, 'c3', (xs[3], ys[3]), font, 4, (255, 255, 255), 2, cv2.LINE_AA)
+                # cv2.putText(img, str(beta), (10,200), font, 4, (255, 255, 255), 2, cv2.LINE_AA)
+                plt.imshow(img)
+                counter += 1
 
-            # gi = GeneralImage(path + '/' + "GateRenders_00{:02d}.jpg".format(j+1))
-
-            font = cv2.FONT_HERSHEY_SIMPLEX
-            img = cv2.imread(os.path.join(path, img_lab[key]["name"]))
-            cv2.putText(img, 'c0', (xs[0], ys[0]), font, 4, (255, 255, 255), 2, cv2.LINE_AA)
-            cv2.putText(img, 'c1', (xs[1], ys[1]), font, 4, (255, 255, 255), 2, cv2.LINE_AA)
-            cv2.putText(img, 'c2', (xs[2], ys[2]), font, 4, (255, 255, 255), 2, cv2.LINE_AA)
-            cv2.putText(img, 'c3', (xs[3], ys[3]), font, 4, (255, 255, 255), 2, cv2.LINE_AA)
-            # cv2.putText(img, str(beta), (10,200), font, 4, (255, 255, 255), 2, cv2.LINE_AA)
-            plt.imshow(img)
-            counter += 1
-
-        # gi = GeneralImage(path+'/'+"GateRenders_0001.jpg")
-        # plt.imshow(gi.rgb())
+        else:
+            stored_labels.append({"Name": img_lab[key]['name'], "R": 0, "alpha": 0, "beta":0, "gate": int(with_gate)})   # TODO: change gate status for empty pictures
+            for i in range(4):
+                stored_labels[-1]["x{}".format(i)] = 0
+                stored_labels[-1]["y{}".format(i)] = 0
 
     print("Storing data to: {}".format("{}/{}".format(path, "corners.txt")))
     with open("{}/{}".format(path, "corners.txt"), mode='w+') as csvfile:
@@ -143,7 +144,26 @@ def generate_label_file(path, ext, with_gate):
     plt.show()
 
 
-if __name__ == "__main__":
-    path = "../data/cad_renders2_test"
-    generate_label_file(path, '.jpg', True)
+def copy_images(from_path, to_path):
+    store_stash = []
+    for file_name in os.listdir(from_path):
+        if file_name[-4:] != ".txt":
+            copyfile(os.path.join(from_path, file_name), os.path.join(to_path, file_name))
+        else:
+            with open(os.path.join(from_path, file_name), mode='r') as csvfile:
+                reader = csv.DictReader(csvfile, dialect="excel-tab")
+                for row in reader:
+                    store_stash.append(row)
+            # print(store_stash)
+            with open(os.path.join(to_path, file_name), mode="a") as csvfile:
+                writer = csv.DictWriter(csvfile, fieldnames=store_stash[0].keys(), dialect="excel-tab")
+                for line in store_stash:
+                    writer.writerow(line)
 
+if __name__ == "__main__":
+    # for i in (2,3,5):
+        # path = "../data/cad_renders{}_dist".format(i)
+    # path = "../data/backgrounds"
+    #     generate_label_file(path, '.jpg', True)
+    generate_label_file("../data/cad_renders", '.jpg', True)
+    # copy_images("../data/backgrounds", "../data/cad_renders2_dist")

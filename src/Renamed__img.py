@@ -9,13 +9,15 @@ class ImagePreProc:
     This class contains total information about the images in the folder
     Could be used to rename all files in the specified order.
     """
-    available_labels = ['img', 'R', 'alpha', 'beta', 'gamma', 'x', 'y', "blur", "noise", "contrast", "compr"]
+    available_labels = ['img', 'R', 'alpha', 'beta', 'gamma', 'x', 'y', "blur", "gaussian_noise", "contrast",
+                        "compression", "erosion", "dilation", "closing", "opening", "gradient"]
 
     def __init__(self):
         self.__path = None
+        self.__save_path = None
         self.images_labels = None
 
-    def load(self, path, ext=".jpg"):
+    def load(self, path, ext=".jpg", background=False):
         if not os.path.exists(path):
             raise FileNotFoundError("Invalid path: {}".format(path))
         if self.__path is None:
@@ -25,9 +27,10 @@ class ImagePreProc:
         files = tuple(filter(lambda x: ext in x, os.listdir(self.__path)))
         labels = re.findall(r'[a-zA-Z]+', files[0][:-4])  # find all labels in file name, except extension
 
-        for label in labels:
-            if label not in self.available_labels:
-                raise KeyError("Invalid key, not present in available labels: {} not in {}".format(label, self.available_labels))
+        if not background:
+            for label in labels:
+                if label not in self.available_labels:
+                    raise KeyError("Invalid key, not present in available labels: {} not in {}".format(label, self.available_labels))
 
         for i, file_name in enumerate(files):
             digits = re.findall(r'[\d.]+', file_name[:-4])
@@ -37,7 +40,7 @@ class ImagePreProc:
                 self.images_labels[i][label] = digit
             self.images_labels[i]['ext'] = ext
 
-    def rename(self, path, order, ext=".jpg"):
+    def rename(self, path, order, save_path=None, ext=".jpg"):
         # order should have a structure {"R":(0, (0,1,2,3,4))), ....  "alpha":(5,(1,2,3,4,5))}
         # Check that path and keys are valid
         if self.__path is None:
@@ -46,7 +49,11 @@ class ImagePreProc:
         else:
             raise FileExistsError("This class is already used by other path, please create new instance with this path")
 
+        self.__save_path = save_path or path
         self.__path = path
+
+        if not os.path.exists(self.__save_path):
+            os.makedirs(self.__save_path)
 
         for key in order:
             if key not in self.available_labels:
@@ -69,7 +76,7 @@ class ImagePreProc:
         template_name = "img{i:05d}_" + '_'.join([str(key)+"{{:4.5f}}".format() for key in keys]) + "{ext}"
         for i, combination in enumerate(combos):
             new_name = template_name.format(*combination, i=i, ext=ext)
-            os.rename(os.path.join(self.__path, files[i]), os.path.join(self.__path, new_name))
+            os.rename(os.path.join(self.__save_path, files[i]), os.path.join(self.__path, new_name))
 
     def get_images(self):
         return self.images_labels
@@ -90,9 +97,11 @@ class ImagePreProc:
 
 if __name__ == "__main__":
     import numpy as np
-    path="../data/cad_renders2_test"
+    path = "../data/cad_renders"
     rn = ImagePreProc()
-    rn.rename(path, {"R":(0,[2]), "alpha":(1, (0,)), "beta": (2, np.linspace(0,90,60))})
+
+    # rn.rename(path, {"R":(0,[3]), "alpha":(1, (0,)), "beta": (2, np.linspace(0,90,60))})
+    rn.rename(path, {"R": (0, [3]), "alpha": (1, (0,)), "beta": (2,(30,0,60,5))})
     # rn.load(path)
     # print(rn)
     # print(rn.get_images())

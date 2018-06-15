@@ -72,7 +72,7 @@ if __name__ == "__main__":
     path = "data/cad_renders_dist/img_0_blur_10.jpg"
     fbt = FeatureBasedTest(path)
     # fbt.harris_corner()
-    fbt.shi_tomasi_corner()
+    # fbt.shi_tomasi_corner()
     # print(cv2.xfeatures2d)
     # fbt.shi_tomasi_corner()
     # fbt.sift()
