@@ -6,14 +6,14 @@ import os
 from scipy import stats
 import glob
 import re
-from standard_algs import *
-from snake_check import *
-import time
-
+from src.standard_algs import *
+from src.snake_check import *
+from src.benchmark import Benchmark
 
 class Harris_detector:
     def __init__(self):
-        pass
+        self.gate_detected = False
+        self.img_size = [0,0]
 
     def get_most_dense(self,lines):
         new_lines = sorted(lines, key=lambda x: len(x[0]), reverse=True)
@@ -67,6 +67,8 @@ class Harris_detector:
             'Bitwise and performed to do dot product such that range condition is met'
             cond = np.bitwise_and(corners_x[:, 0] < x_max, corners_x[:, 0] > x_min)
             corners_x = corners_x[cond]
+            cond = corners_x[:, 1] < self.img_size[1]
+            corners_x = corners_x[cond]
             'Look for horizontal lines'
             while len(corners_x) > 0:
                 point = corners_x[0]
@@ -84,20 +86,20 @@ class Harris_detector:
             for line in lines_h:
                 tot_used += len(line[0])
                 slope, intercept, r_value, p_value, std_err = stats.linregress(line[0], line[1])
-                if abs(slope)< 1.15:
+                if abs(slope)< 0.5:
                     slopes_h.append(slope)
                     intercepts_h.append(intercept)
 
             ratio = tot_used / num_points
             noisy = initial_points > 1000
-            if ratio < 0.8 and not noisy:
+            if ratio < 0.1 and not noisy:
                 # print("Gate was not detected: the number of points interpolated was below threshold or image might be too noisy")
-                gate_detected = False
+                self.gate_detected = False
             else:
-                gate_detected = True
+                self.gate_detected = True
         else:
-            slopes, intercepts, slopes_h, intercepts_h, ratio, gate_detected = None,None,None,None,None,False
-        return slopes, intercepts, slopes_h, intercepts_h, ratio, gate_detected
+            slopes, intercepts, slopes_h, intercepts_h, ratio, self.gate_detected = None,None,None,None,None,False
+        return slopes, intercepts, slopes_h, intercepts_h, ratio, self.gate_detected
 
 
     def plot_lines(self,slopes, intercepts, slopes_h, intercepts_h, img,plot=True):
@@ -150,7 +152,7 @@ class Harris_detector:
 
 
     def get_intersects(self,slopes_v, intercepts_v, slopes_h, intercept_h, ar_limits):
-        if len(slopes_h) + len(slopes_v) >3:
+        if len(slopes_h)>1 and len(slopes_v) >1:
             point1 = self.line_intersection(slopes_v[0], intercepts_v[0], slopes_h[0], intercept_h[0])
             point2 = self.line_intersection(slopes_v[0], intercepts_v[0], slopes_h[1], intercept_h[1])
             point3 = self.line_intersection(slopes_v[1], intercepts_v[1], slopes_h[0], intercept_h[0])
@@ -162,19 +164,19 @@ class Harris_detector:
                 h_len2 = abs(point2[0] - point4[0])
                 v_len1 = abs(point1[1] - point2[1])
                 v_len2 = abs(point3[1] - point4[1])
-                # print("ar = ", abs(h_len1+h_len2)/abs(v_len1+v_len2))
+                print("ar = ", abs(h_len1+h_len2)/abs(v_len1+v_len2))
                 ar = abs(h_len1 + h_len2) / abs(v_len1 + v_len2)
                 ar_bool =ar > ar_limits[0] and ar < ar_limits[1]
 
                 if ar_bool:
                     return points, ar_bool
                 else:
-                    # print("No gate in sight: AR requirement is not met")
+                    print("No gate in sight: AR requirement is not met")
                     return points, ar_bool
 
-        else:
-            points = list(filter(None, points))
-            # print("Not enough lines detected")  # TODO: implemet only points found
+            else:
+                points = list(filter(None, points))
+                # print("Not enough lines detected")  # TODO: implemet only points found
             return points
 
 
@@ -193,19 +195,19 @@ class Harris_detector:
     def find_gate(self,img_dir, plot=False, verbosity=False,num=0):
         corners_ordered = [0, 0], [0, 0], [0, 0], [0, 0]
         img = cv2.imread(img_dir)
+        self.img_size = img.shape
         # img =  cv2.GaussianBlur(img, (11, 11), sigmaX=10, sigmaY=10)
         # img = gaussian_noise(img, 0, 20)
-        # harris_corners = harris(img)
-        harris
+        harris_corners = harris(img)
         initial_points = len(harris_corners)
         # TODO: implement outlier detection in harris_corners
         # harris_corners = outliers_z_score(harris_corners, z_score_thshd = .75)
         harris_img = draw_point(img, harris_corners)
-        slopes, intercepts, slopes_h, intercepts_h, ratio_pts, gate_detected = self.find_lines(harris_corners, initial_points=0)
+        slopes, intercepts, slopes_h, intercepts_h, ratio_pts, self.gate_detected = self.find_lines(harris_corners, initial_points=0)
         if slopes is not None:
             final_lines = self.plot_lines(slopes, intercepts, slopes_h, intercepts_h, harris_img, plot=True)
-            if gate_detected and len(final_lines) >3:
-                corners, ar = self.get_intersects(slopes, intercepts, slopes_h, intercepts_h, [0.01, 1.3])
+            if self.gate_detected and len(final_lines) >3:
+                corners, ar = self.get_intersects(slopes, intercepts, slopes_h, intercepts_h, [-10,10])#[0.01, 1.3])
                 indices = [3, 2, 0, 1]
                 # gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
                 # check_color_cont(corners,gray)
@@ -217,12 +219,12 @@ class Harris_detector:
                     for i in corners_ordered:
                         plt.plot(i[0], i[1], 'bo', markersize=12)
                 else:
-                    gate_detected = False
+                    self.gate_detected = False
                     if verbosity:
                         print("Gate not detected! \n")
                     corners_ordered = [0,0],[0,0],[0,0],[0,0]
         else:
-            gate_detected= False
+            self.gate_detected= False
             corners_ordered = [0, 0], [0, 0], [0, 0], [0, 0]
             if verbosity:
                 print("Gate not detected!\n")
@@ -234,7 +236,7 @@ class Harris_detector:
             plt.show()
 
         q1,q2,q3,q4 = corners_ordered[0],corners_ordered[1],corners_ordered[2],corners_ordered[3]
-        return gate_detected,q1,q2,q3,q4
+        return self.gate_detected,q1,q2,q3,q4
 
 
 def get_accuracy(img_list):
@@ -243,16 +245,13 @@ def get_accuracy(img_list):
     detector = Harris_detector()
     i=1
     for img_dir in img_list:
-        # img = cv2.imread(img_dir)
-        # gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        # thomas(gray, img)
         noisy = re.search(r'(noise_)[3-9]0', img_dir)
         if not noisy:
             i+=1
-            gate_detected, q1,q2,q3,q4 = detector.find_gate(img_dir, plot=True, verbosity=False,num=i)
+            detector.gate_detected, q1,q2,q3,q4 = detector.find_gate(img_dir, plot=True, verbosity=False,num=i)
             print('This is result:')
-            print(gate_detected)
-            my_vals.append(gate_detected)
+            print(detector.gate_detected)
+            my_vals.append(detector.gate_detected)
 
     accuracy = sum(my_vals) / sample_size
     print(
@@ -265,23 +264,23 @@ if __name__ == "__main__":
     base_path = os.path.dirname(os.path.realpath(__file__))
     img_dir = os.path.join(base_path, 'cad_renders_dist\*.jpg')
     import time
-    t0=time.perf_counter()
-    img_dir='C:\\Users\Daniel\Google Drive\\targets\*.png'
-    img_dir = 'C:\\Users\Daniel\Downloads\\20June2\GateRendersBottomUp\GateRendersBottomUp_animation\*.jpg'
-    img_list = glob.glob(img_dir)#('cad_renders_dist\*.jpg')
-    accuracy = get_accuracy(img_list)
-    print(time.perf_counter()-t0)
+    # t0=time.perf_counter()
+    # img_dir='C:\\Users\Daniel\Google Drive\\targets\*.png'
+    # img_dir = 'C:\\Users\Daniel\Downloads\GateRenders val\GateRenders 6\GateRenders_animation\*.jpg'
+    # img_list = glob.glob(img_dir)
+    # accuracy = get_accuracy(img_list)
+    # print(time.perf_counter()-t0)
 
 
-    'Benchmark'
+    # 'Benchmark'
     # path = '../data/cad_renders2_dist'
     # # from src.benchmark import Benchmark
     # b = Benchmark(Harris_detector())
     # b.load_data(path)
     # b.test()
     # print(b)
-
-    'Try Hough Transform'
+    #
+    # 'Try Hough Transform'
     # for img_dir in img_list:
     #     img = cv2.imread(img_dir)
     #     edges = cv2.Canny(img, 200,5, None, 3)
