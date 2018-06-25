@@ -27,8 +27,8 @@ class Harris_detector:
     def find_lines(self,corners, initial_points = 0):
         tot_used = 0
         num_points = len(corners[:, 0])
-        vert_range = 10  # make it a function of shape of corners
-        horiz_range = 10
+        vert_range = 50  # make it a function of shape of corners
+        horiz_range = 50
         corners = np.delete(corners, [0], 0)
         corners = np.copy(corners)
         corners_x = np.copy(corners)
@@ -46,7 +46,7 @@ class Harris_detector:
 
             if x_copy.shape[0] > max_points:
                 lines.append([x_copy[:, 0], x_copy[:, 1]])
-            print(lines)
+            # print(lines)
 
         lines = self.get_most_dense(lines)
         slopes = []
@@ -67,7 +67,7 @@ class Harris_detector:
             'Bitwise and performed to do dot product such that range condition is met'
             cond = np.bitwise_and(corners_x[:, 0] < x_max, corners_x[:, 0] > x_min)
             corners_x = corners_x[cond]
-            cond = corners_x[:, 1] < self.img_size[1]
+            cond = corners_x[:, 1] < self.img_size[0]-35
             corners_x = corners_x[cond]
             'Look for horizontal lines'
             while len(corners_x) > 0:
@@ -164,14 +164,14 @@ class Harris_detector:
                 h_len2 = abs(point2[0] - point4[0])
                 v_len1 = abs(point1[1] - point2[1])
                 v_len2 = abs(point3[1] - point4[1])
-                print("ar = ", abs(h_len1+h_len2)/abs(v_len1+v_len2))
+                # print("ar = ", abs(h_len1+h_len2)/abs(v_len1+v_len2))
                 ar = abs(h_len1 + h_len2) / abs(v_len1 + v_len2)
                 ar_bool =ar > ar_limits[0] and ar < ar_limits[1]
 
                 if ar_bool:
                     return points, ar_bool
                 else:
-                    print("No gate in sight: AR requirement is not met")
+                    # print("No gate in sight: AR requirement is not met")
                     return points, ar_bool
 
             else:
@@ -265,10 +265,11 @@ if __name__ == "__main__":
     img_dir = os.path.join(base_path, 'cad_renders_dist\*.jpg')
     import time
     # t0=time.perf_counter()
-    # img_dir='C:\\Users\Daniel\Google Drive\\targets\*.png'
-    # img_dir = 'C:\\Users\Daniel\Downloads\GateRenders val\GateRenders 6\GateRenders_animation\*.jpg'
-    # img_list = glob.glob(img_dir)
-    # accuracy = get_accuracy(img_list)
+    img_dir='C:\\Users\Daniel\Google Drive\\targets\*.png'
+    img_dir = 'C:\\Users\Daniel\Downloads\GateRenders val\GateRenders 6\GateRenders_animation\*.jpg'
+    img_dir = 'C:\\Users\Daniel\Downloads\\20June2\GateRenders360Rotation\GateRenders360Rotation_animation\*.jpg'
+    img_list = glob.glob(img_dir)
+    accuracy = get_accuracy(img_list)
     # print(time.perf_counter()-t0)
 
 
