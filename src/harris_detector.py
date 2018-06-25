@@ -3,239 +3,294 @@ import numpy as np
 from matplotlib import pyplot as plt
 import math
 import os
+from scipy import stats
+import glob
+import re
+from standard_algs import *
+from snake_check import *
+import time
 
 
-def draw_point(img, points, thick = 5, color = (0,0, 255)):
-    points = np.array(points, dtype=int)
-    img_copy = np.copy(img)
-    for i in range(len(points)):
-        cv2.circle(img_copy, (points[i][0], points[i][1]), thick, color, -1)
-    img_copy = cv2.cvtColor(img_copy, cv2.COLOR_BGR2RGB)
-    return img_copy
+class Harris_detector:
+    def __init__(self):
+        pass
 
-
-def draw_line(img, lines, point_num=None):
-    img_copy = np.copy(img)
-    point_num = point_num
-    for i, line in enumerate(lines):
-        if point_num is not None:
-            # print(line[0],i)
-            font = cv2.FONT_HERSHEY_SIMPLEX
-            cv2.putText(img_copy, str(i), line[1], font, 1, (255, 0, 0), 2, cv2.LINE_AA)
-        cv2.line(img_copy, line[0], line[1], (0, 0, 255), 2, cv2.LINE_AA)
-
-    img_copy = cv2.cvtColor(img_copy, cv2.COLOR_BGR2RGB)
-    return img_copy
-
-
-def harris(img):
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    gray = np.float32(gray)
-    dst = cv2.cornerHarris(gray, 2, 3, 0.04)
-    dst = cv2.dilate(dst, None)
-    ret, dst = cv2.threshold(dst, 0.01 * dst.max(), 255, 0)
-    dst = np.uint8(dst)
-
-    # find centroids
-    ret, labels, stats, centroids = cv2.connectedComponentsWithStats(dst)
-
-    # define the criteria to stop and refine the corners
-    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.001)
-    corners = cv2.cornerSubPix(gray, np.float32(centroids), (5, 5), (-1, -1), criteria)
-
-    # Now draw them
-    res = np.hstack((centroids, corners))
-    res = np.array(res, dtype=int)
-    points = res[:, 0:2]
-    return points
-
-
-def hough_transform(img, tune_params):
-    # gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    edges = cv2.Canny(img, tune_params[0][0], tune_params[0][1], None, 3)
-    point_seq = []
-    'Standard Hough Transform'
-    lines = cv2.HoughLines(edges, tune_params[1][0], tune_params[1][1], tune_params[1][2], None, 0, 0)
-    if lines is not None:
-        for i in range(len(lines)):
-            rho = lines[i][0][0]
-            theta = lines[i][0][1]
-            a = math.cos(theta)
-            b = math.sin(theta)
-            x0 = a * rho
-            y0 = b * rho
-            pt1 = (int(x0 + 1000 * (-b)), int(y0 + 1000 * (a)))
-            pt2 = (int(x0 - 1000 * (-b)), int(y0 - 1000 * (a)))
-            # cv2.line(img, pt1, pt2, (0, 0, 255), 1, cv2.LINE_AA)
-            point_seq.append([pt1, pt2])
-
-    # cv2.imwrite('hough_output.jpg', img)
-    #
-    'Probabilistic Hough Transform'
-    # reallines =[]
-    # linesP = cv2.HoughLinesP(edges, 1, np.pi / 180, 50, minLineLength=500, maxLineGap=1)
-    # for x1, y1, x2, y2 in linesP[0]:
-    #     reallines.append([[x1, y1], [x2, y2]])
-
-    return point_seq
-
-
-def hough_harris(lines, corners):
-    corn_upd = []
-    for i in range(len(corners)):
-        for points in lines:
-            m = (points[1][1] - points[0][1]) / (points[1][0] - points[0][0] + 1)
-            pt_y = abs(points[0][1] + m * (corners[i][0] - points[0][0]))
-            pt_x = abs((pt_y - points[0][1]) / (m + 1) + points[0][0])
-            if abs(corners[i][1] - pt_y) < 100 and abs(corners[i][0] - pt_x) < 100:
-                corn_upd.append(corners[i])
-                break
-
-    return corn_upd
-
-
-def clean_corners(corners):
-    corners_upd = []
-    neighbors = int(0.03 * corners.shape[0])
-    while corners.shape[0] > 0:
-        point = corners[0, :]
-        corners = np.delete(corners, [0], 0)
-        new_corners = np.array([[point[0], point[1]]])
-        for other_point in corners:
-            if np.linalg.norm(other_point - point) < 50:
-                new_corners = np.append(new_corners, [other_point], axis=0)
-
-        if new_corners.shape[0] > neighbors:
-            corners_upd.append([np.mean(new_corners[:, 0]), np.mean(new_corners[:, 1])])
-            for corner in new_corners[neighbors:, :]:
-                corners = np.delete(corners, np.where(corners == corner)[0], 0)
-    # corners_upd = np.array(corners_upd)
-
-    return corners_upd
-
-
-def neighbor(start_point, points, radius_thresh):
-    prev_radius = radius_thresh
-    next_neighbor = None
-    # points = np.delete(points, np.where(points == start_point)[0], 0)
-    for other_point in points:
-        radius = np.linalg.norm(start_point - other_point)
-        if radius < prev_radius:
-            next_neighbor = other_point
-            prev_radius = radius
-
-    return next_neighbor
-
-
-def slope(start, second):
-    return math.degrees(math.atan(abs((second[1] - start[1]) / (second[0] - start[0]+0.1))))
-
-
-def gradients_lines(corners, radius_thresh):
-    corner_gate = []
-    lines = []
-    cur_slope = 0
-    points = np.copy(corners)
-    point = points[0]
-    start_point = point
-    points = np.delete(points, [0], 0)
-    corner = 0
-    while len(points) != 1:
-        next_point = neighbor(point, points, radius_thresh)
-        # if no elements are found within radius_tresh then delete and look for first point in list
-        if next_point is None:
-            points = np.delete(points, np.where(points == point)[0], 0)
-            if len(points) != 0:
-                point = points[0]
+    def get_most_dense(self,lines):
+        new_lines = sorted(lines, key=lambda x: len(x[0]), reverse=True)
+        if len(new_lines)>1:
+            return new_lines[0:2]
         else:
-            m = slope(point, next_point)
-            print(abs(cur_slope - m), next_point, point, m)
-            if abs(cur_slope - m) > 50:
-                # corner found
-                corner_gate.append(point)
-                cur_slope = m
-                print("CORNER:", point)
-
-            lines.append([tuple(map(int, point)), tuple(map(int, next_point))])
-            point = next_point  # variable is kept with this value till following iter
-            points = np.delete(points, np.where(points == point)[0], 0)
-    last_point = lines[-1][1]
-    start_point = lines[0][0]
-    m = slope(last_point, start_point)
-    if abs(cur_slope - m) > 50:
-        # corner found
-        corner_gate.append(last_point)
-        cur_slope = m
-        print("CORNER:", point)
-    lines.append([tuple(map(int, last_point)), tuple(map(int, start_point))])
-    return lines, corner_gate
+            # print("Not enough lines detected")
+            return new_lines[0:2]
 
 
+    def find_lines(self,corners, initial_points = 0):
+        tot_used = 0
+        num_points = len(corners[:, 0])
+        vert_range = 10  # make it a function of shape of corners
+        horiz_range = 10
+        corners = np.delete(corners, [0], 0)
+        corners = np.copy(corners)
+        corners_x = np.copy(corners)
+        max_points =0# max(2, int(0.05 * num_points))
+        lines = []
+        lines_h = []
 
-def draw_gate(corners):
-    arguments = list(np.argsort(np.linalg.norm(corners[0] - corners[1:], axis=1)))
-    indices = [0] + [i + 1 for i in arguments]
-    lines_upd = []
-    for i in indices:
-        lines_upd.append([tuple(corners[i]), tuple(corners[(i + 1) % len(indices)])])
-    return lines_upd
+        'Look for vertical lines'
+        while len(corners) > 0:
+            point = corners[0]
+            # corners = np.delete(corners, [0], 0)
+            condition = abs(corners[:, 0] - point[0]) < horiz_range
+            x_copy = corners[condition]
+            corners = corners[np.logical_not(condition)]
 
-#implement matteo's method
-# def find_lines(corners):
-#     point = corners[0]
-#     start_point = point
-#     corners = np.delete(corners, [0], 0)
-#     while len(corners)!=1:
-#
-#         if abs(point[0] - corners[i][0]) <0:
+            if x_copy.shape[0] > max_points:
+                lines.append([x_copy[:, 0], x_copy[:, 1]])
+            print(lines)
 
+        lines = self.get_most_dense(lines)
+        slopes = []
+        intercepts = []
+        for line in lines:
+            tot_used += len(line[0])
+            slope, intercept, r_value, p_value, std_err = stats.linregress(line[1], line[0])
+            if abs(slope)< 0.3:
+                slopes.append(slope+0.00001)
+                intercepts.append(intercept)
+
+
+        ' Set limits to look for horizontal lines'
+        if len(lines) > 0:
+            temp = np.append(np.array(lines)[:, 0][0], np.array(lines)[:, 0][1%len(lines)])
+            x_min = min(temp)-20
+            x_max = max(temp)+20
+            'Bitwise and performed to do dot product such that range condition is met'
+            cond = np.bitwise_and(corners_x[:, 0] < x_max, corners_x[:, 0] > x_min)
+            corners_x = corners_x[cond]
+            'Look for horizontal lines'
+            while len(corners_x) > 0:
+                point = corners_x[0]
+                # corners_x = np.delete(corners_x, [0], 0)
+                cond = abs(corners_x[:, 1] - point[1]) < vert_range
+                x_copy = corners_x[cond]
+                corners_x = corners_x[abs(corners_x[:, 1] - point[1]) > vert_range]
+                if x_copy.shape[0] > max_points:
+                    lines_h.append([x_copy[:, 0], x_copy[:, 1]])
+
+            lines_h = self.get_most_dense(lines_h)
+            slopes_h = []
+            intercepts_h = []
+
+            for line in lines_h:
+                tot_used += len(line[0])
+                slope, intercept, r_value, p_value, std_err = stats.linregress(line[0], line[1])
+                if abs(slope)< 1.15:
+                    slopes_h.append(slope)
+                    intercepts_h.append(intercept)
+
+            ratio = tot_used / num_points
+            noisy = initial_points > 1000
+            if ratio < 0.8 and not noisy:
+                # print("Gate was not detected: the number of points interpolated was below threshold or image might be too noisy")
+                gate_detected = False
+            else:
+                gate_detected = True
+        else:
+            slopes, intercepts, slopes_h, intercepts_h, ratio, gate_detected = None,None,None,None,None,False
+        return slopes, intercepts, slopes_h, intercepts_h, ratio, gate_detected
+
+
+    def plot_lines(self,slopes, intercepts, slopes_h, intercepts_h, img,plot=True):
+        x_max = img.shape[1]
+        y_max = img.shape[0]
+        xs = np.arange(0, x_max, 0.5)
+        lines = []
+        ys = []
+        'Plot lines in image'
+        for i in range(len(slopes)):
+            m = slopes[i]
+            c = intercepts[i]
+            ys = []
+            for x in xs:
+                ys.append(1 / m * x - c / m)
+
+            if plot:
+                plt.plot(xs, ys)
+            lines.append(ys)
+
+        for i in range(len(slopes_h)):
+            m = slopes_h[i]
+            c = intercepts_h[i]
+            ys = []
+            for x in xs:
+                ys.append(m * x + c)
+            if plot:
+                plt.plot(xs, ys)
+
+            lines.append(ys)
+        # print(lines)
+        # print(len(lines))
+        if plot:
+            plt.imshow(img)
+            plt.xlim([0, x_max])
+            plt.ylim([y_max, 0])
+            # plt.show()
+
+        return lines
+
+
+    def line_intersection(self,mv, bv, mh, bh):
+        if (mh - 1 / mv) == 0:
+            # print("No intersection")
+            return 0,0
+        else:
+            x = (-bh - bv / mv) / (mh - 1 / mv)
+            y = mh * x + bh
+            return x, y
+
+
+    def get_intersects(self,slopes_v, intercepts_v, slopes_h, intercept_h, ar_limits):
+        if len(slopes_h) + len(slopes_v) >3:
+            point1 = self.line_intersection(slopes_v[0], intercepts_v[0], slopes_h[0], intercept_h[0])
+            point2 = self.line_intersection(slopes_v[0], intercepts_v[0], slopes_h[1], intercept_h[1])
+            point3 = self.line_intersection(slopes_v[1], intercepts_v[1], slopes_h[0], intercept_h[0])
+            point4 = self.line_intersection(slopes_v[1], intercepts_v[1], slopes_h[1], intercept_h[1])
+            points = [point1, point2, point3, point4]
+
+            if None not in points:
+                h_len1 = abs(point1[0] - point3[0])
+                h_len2 = abs(point2[0] - point4[0])
+                v_len1 = abs(point1[1] - point2[1])
+                v_len2 = abs(point3[1] - point4[1])
+                # print("ar = ", abs(h_len1+h_len2)/abs(v_len1+v_len2))
+                ar = abs(h_len1 + h_len2) / abs(v_len1 + v_len2)
+                ar_bool =ar > ar_limits[0] and ar < ar_limits[1]
+
+                if ar_bool:
+                    return points, ar_bool
+                else:
+                    # print("No gate in sight: AR requirement is not met")
+                    return points, ar_bool
+
+        else:
+            points = list(filter(None, points))
+            # print("Not enough lines detected")  # TODO: implemet only points found
+            return points
+
+
+    def outliers_z_score(self,corners, z_score_thshd = 1.5):
+        ys = corners[:, 0]
+        # print(len(ys))
+        threshold = z_score_thshd # thshld = 1 is too low since useful points are trashed
+        mean_y = 650#np.mean(ys)
+        stdev_y = np.std(ys)
+        z_scores = [(y - mean_y) / stdev_y for y in ys]
+        corners = np.delete(corners, np.where(np.abs(z_scores) > threshold)[0], 0)
+        # print(len(corners[:, 0]))
+        return corners
+
+
+    def find_gate(self,img_dir, plot=False, verbosity=False,num=0):
+        corners_ordered = [0, 0], [0, 0], [0, 0], [0, 0]
+        img = cv2.imread(img_dir)
+        # img =  cv2.GaussianBlur(img, (11, 11), sigmaX=10, sigmaY=10)
+        # img = gaussian_noise(img, 0, 20)
+        # harris_corners = harris(img)
+        harris
+        initial_points = len(harris_corners)
+        # TODO: implement outlier detection in harris_corners
+        # harris_corners = outliers_z_score(harris_corners, z_score_thshd = .75)
+        harris_img = draw_point(img, harris_corners)
+        slopes, intercepts, slopes_h, intercepts_h, ratio_pts, gate_detected = self.find_lines(harris_corners, initial_points=0)
+        if slopes is not None:
+            final_lines = self.plot_lines(slopes, intercepts, slopes_h, intercepts_h, harris_img, plot=True)
+            if gate_detected and len(final_lines) >3:
+                corners, ar = self.get_intersects(slopes, intercepts, slopes_h, intercepts_h, [0.01, 1.3])
+                indices = [3, 2, 0, 1]
+                # gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                # check_color_cont(corners,gray)
+                if corners is not None and ar:
+                    if len(corners) == 4:
+                        if verbosity:
+                            print("Gate detected! \n")
+                    corners_ordered = [corners[i] for i in indices]
+                    for i in corners_ordered:
+                        plt.plot(i[0], i[1], 'bo', markersize=12)
+                else:
+                    gate_detected = False
+                    if verbosity:
+                        print("Gate not detected! \n")
+                    corners_ordered = [0,0],[0,0],[0,0],[0,0]
+        else:
+            gate_detected= False
+            corners_ordered = [0, 0], [0, 0], [0, 0], [0, 0]
+            if verbosity:
+                print("Gate not detected!\n")
+            pass  # error message previously announced
+        if plot:
+            # pass
+            stir=str(num)
+            # plt.savefig('./results/image'+stir+'.jpg')
+            plt.show()
+
+        q1,q2,q3,q4 = corners_ordered[0],corners_ordered[1],corners_ordered[2],corners_ordered[3]
+        return gate_detected,q1,q2,q3,q4
+
+
+def get_accuracy(img_list):
+    sample_size = len(img_list)
+    my_vals = []
+    detector = Harris_detector()
+    i=1
+    for img_dir in img_list:
+        # img = cv2.imread(img_dir)
+        # gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        # thomas(gray, img)
+        noisy = re.search(r'(noise_)[3-9]0', img_dir)
+        if not noisy:
+            i+=1
+            gate_detected, q1,q2,q3,q4 = detector.find_gate(img_dir, plot=True, verbosity=False,num=i)
+            print('This is result:')
+            print(gate_detected)
+            my_vals.append(gate_detected)
+
+    accuracy = sum(my_vals) / sample_size
+    print(
+        'The accuracy of correct images detected is {}% (aka True-Positive verification to be implemented)'.format(
+            accuracy * 100))
+
+    return accuracy
 
 if __name__ == "__main__":
     base_path = os.path.dirname(os.path.realpath(__file__))
-    img_dir = os.path.join(base_path, 'cad_renders_dist\img_3_blur_10.jpg')
-    img = cv2.imread(img_dir)
-    # img = cv2.imread("diff_gate.jpg")
-    edges_res = (200, 200)
-    rho_res = 5
-    theta_res = np.pi / 180
-    line_res = 94  # pixels
-    hough_res = [rho_res, theta_res, line_res]
-    tune_params = np.array([edges_res, hough_res])
-    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    img_dir = os.path.join(base_path, 'cad_renders_dist\*.jpg')
+    import time
+    t0=time.perf_counter()
+    img_dir='C:\\Users\Daniel\Google Drive\\targets\*.png'
+    img_dir = 'C:\\Users\Daniel\Downloads\\20June2\GateRendersBottomUp\GateRendersBottomUp_animation\*.jpg'
+    img_list = glob.glob(img_dir)#('cad_renders_dist\*.jpg')
+    accuracy = get_accuracy(img_list)
+    print(time.perf_counter()-t0)
 
-    harris_corners = harris(img)
-    harris_img = draw_point(img, harris_corners)
 
-    hough_lines = hough_transform(img, tune_params)
-    hough_img = draw_line(img, hough_lines)
+    'Benchmark'
+    # path = '../data/cad_renders2_dist'
+    # # from src.benchmark import Benchmark
+    # b = Benchmark(Harris_detector())
+    # b.load_data(path)
+    # b.test()
+    # print(b)
 
-    polished_corners = clean_corners(harris_corners)
-    polished_img = draw_point(img, polished_corners)
+    'Try Hough Transform'
+    # for img_dir in img_list:
+    #     img = cv2.imread(img_dir)
+    #     edges = cv2.Canny(img, 200,5, None, 3)
+    #     plt.imshow(edges)
+    #     plt.show()
+    #     hough_lines = hough_transform(img, tune_params= np.array([(200, 200), [5, np.pi/180, 150]]))
+    #     img= draw_line(img,hough_lines)
+    #     plt.imshow(img)
+    #     plt.show()
 
-    new_corners = hough_harris(hough_lines, polished_corners)
-    new_corns = draw_point(img, new_corners)
 
-    gradients, corners_gate = gradients_lines(polished_corners, 200)
-    gradients_img = draw_line(img, gradients, point_num=1)
-    gradients_img = draw_point(gradients_img, corners_gate, thick= 20, color=(255,255,255))
-    # gate_lines = draw_gate(np.array(new_corners, dtype=int))
-    # gate =  draw_line(img,gate_lines)
 
-    'Plotter'
-    plot = True
-    if plot:
-    # Plot nr 1
-        plt.subplot(121)
-        plt.imshow(hough_img)
-        plt.subplot(122)
-        plt.imshow(harris_img)
-        plt.show()
-
-        # Plot nr 2
-        plt.subplot(121)
-        plt.imshow(gradients_img)
-
-        plt.subplot(122)
-        plt.imshow(polished_img)
-
-        plt.show()
