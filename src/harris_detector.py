@@ -102,7 +102,7 @@ class Harris_detector:
         return slopes, intercepts, slopes_h, intercepts_h, ratio, self.gate_detected
 
 
-    def plot_lines(self,slopes, intercepts, slopes_h, intercepts_h, img,plot=True):
+    def plot_lines(self,slopes, intercepts, slopes_h, intercepts_h, img, plot=False):
         x_max = img.shape[1]
         y_max = img.shape[0]
         xs = np.arange(0, x_max, 0.5)
@@ -192,8 +192,8 @@ class Harris_detector:
         return corners
 
 
-    def find_gate(self,img_dir, plot=False, verbosity=False,num=0):
-        corners_ordered = [0, 0], [0, 0], [0, 0], [0, 0]
+    def find_gate(self,img_dir, plott=False, verbosity=True,num=0):
+        # corners_ordered = [0, 0], [0, 0], [0, 0], [0, 0]
         img = cv2.imread(img_dir)
         self.img_size = img.shape
         # img =  cv2.GaussianBlur(img, (11, 11), sigmaX=10, sigmaY=10)
@@ -205,31 +205,38 @@ class Harris_detector:
         harris_img = draw_point(img, harris_corners)
         slopes, intercepts, slopes_h, intercepts_h, ratio_pts, self.gate_detected = self.find_lines(harris_corners, initial_points=0)
         if slopes is not None:
-            final_lines = self.plot_lines(slopes, intercepts, slopes_h, intercepts_h, harris_img, plot=True)
-            if self.gate_detected and len(final_lines) >3:
+            final_lines = self.plot_lines(slopes, intercepts, slopes_h, intercepts_h, harris_img, plot=plott)
+            if len(final_lines) >3:
                 corners, ar = self.get_intersects(slopes, intercepts, slopes_h, intercepts_h, [-10,10])#[0.01, 1.3])
                 indices = [3, 2, 0, 1]
                 # gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
                 # check_color_cont(corners,gray)
                 if corners is not None and ar:
+                    print(corners)
                     if len(corners) == 4:
+                        self.gate_detected =True
+
                         if verbosity:
                             print("Gate detected! \n")
+                    else:
+                        self.gate_detected =False
                     corners_ordered = [corners[i] for i in indices]
                     for i in corners_ordered:
                         plt.plot(i[0], i[1], 'bo', markersize=12)
-                else:
-                    self.gate_detected = False
-                    if verbosity:
-                        print("Gate not detected! \n")
-                    corners_ordered = [0,0],[0,0],[0,0],[0,0]
+            else:
+                self.gate_detected = False
+                if verbosity:
+                    print("Gate not detected! \n")
+                corners_ordered = [0,0],[0,0],[0,0],[0,0]
         else:
             self.gate_detected= False
             corners_ordered = [0, 0], [0, 0], [0, 0], [0, 0]
             if verbosity:
                 print("Gate not detected!\n")
             pass  # error message previously announced
-        if plot:
+        print('This is result:')
+        print(self.gate_detected)
+        if plott:
             # pass
             stir=str(num)
             # plt.savefig('./results/image'+stir+'.jpg')
@@ -248,9 +255,7 @@ def get_accuracy(img_list):
         noisy = re.search(r'(noise_)[3-9]0', img_dir)
         if not noisy:
             i+=1
-            detector.gate_detected, q1,q2,q3,q4 = detector.find_gate(img_dir, plot=True, verbosity=False,num=i)
-            print('This is result:')
-            print(detector.gate_detected)
+            detector.gate_detected, q1,q2,q3,q4 = detector.find_gate(img_dir, verbosity=False,num=i)
             my_vals.append(detector.gate_detected)
 
     accuracy = sum(my_vals) / sample_size
