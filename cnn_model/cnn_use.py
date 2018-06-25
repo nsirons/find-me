@@ -6,6 +6,8 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import random
+
+
 class CNN_gate:
 
     def __init__(self):
@@ -43,7 +45,7 @@ class CNN_gate:
                                             strides=2)
 
             conv3 = tf.layers.conv2d(inputs=pool2,
-                                     filters=16,
+                                     filters=32,
                                      kernel_size=(5, 5),
                                      padding='SAME',
                                      activation=tf.nn.relu)
@@ -93,6 +95,8 @@ class CNN_gate:
         # print(type(cnn_image))
         # assert False
         blur = cv2.GaussianBlur(cnn_image.reshape((self.h, self.w)), (5, 5), 0)
+        # plt.hist(blur.flatten(), bins=50)
+        # plt.show()
         _, cnn_image_th = cv2.threshold(blur, 150, 255, cv2.THRESH_BINARY)
         cnn_image_th = cv2.GaussianBlur(cnn_image_th, (5, 5), 0)
         # plt.subplot(132)
@@ -134,7 +138,7 @@ class CNN_gate:
         return img_copy
 
 if __name__ == "__main__":
-    path = "/home/kit/projects/find-me/cnn_model/models_3_5/compressor_case_16.ckpt"
+    path = "/home/kit/projects/find-me/cnn_model/models_final/compressor_case_16.ckpt"
     main = "/home/kit/projects/find-me/data/cnn_data4/inputs_mod"
     t = CNN_gate()
     t.restore_model(path)
@@ -142,7 +146,7 @@ if __name__ == "__main__":
     corners = []
     lst = os.listdir(main)
     random.shuffle(lst)
-    for i,im in enumerate(lst[:50]):
+    for i,im in enumerate(lst[:100]):
         # img_path = "/home/kit/projects/find-me/data/cnn_data3/inputs_new/GateRendersApproach_0020random01609_compression010.jpg"
         img_path = os.path.join(main, im)
         # target_or = cv2.imread("../data/cnn_data3/targets_new/GateRendersApproach_0020random01609_compression010.jp
