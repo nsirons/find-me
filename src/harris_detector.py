@@ -222,11 +222,17 @@ class Harris_detector:
                     corners_ordered = [corners[i] for i in indices]
                     for i in corners_ordered:
                         plt.plot(i[0], i[1], 'bo', markersize=12)
+
+                else:
+                    self.gate_detected = False
+                    corners_ordered = [0, 0], [0, 0], [0, 0], [0, 0]
+                    if verbosity:
+                        print("Gate not detected! \n")
             else:
                 self.gate_detected = False
+                corners_ordered = [0,0],[0,0],[0,0],[0,0]
                 if verbosity:
                     print("Gate not detected! \n")
-                corners_ordered = [0,0],[0,0],[0,0],[0,0]
         else:
             self.gate_detected= False
             corners_ordered = [0, 0], [0, 0], [0, 0], [0, 0]
