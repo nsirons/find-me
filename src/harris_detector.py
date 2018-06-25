@@ -9,7 +9,7 @@ import re
 from src.standard_algs import *
 from src.snake_check import *
 from src.benchmark import Benchmark
-
+from src.fast_cnn import fast_corner
 class Harris_detector:
     def __init__(self):
         self.gate_detected = False
@@ -192,13 +192,13 @@ class Harris_detector:
         return corners
 
 
-    def find_gate(self,img_dir, plott=False, verbosity=True,num=0):
+    def find_gate(self,img_dir, plott=True, verbosity=True,num=0):
         # corners_ordered = [0, 0], [0, 0], [0, 0], [0, 0]
         img = cv2.imread(img_dir)
         self.img_size = img.shape
         # img =  cv2.GaussianBlur(img, (11, 11), sigmaX=10, sigmaY=10)
         # img = gaussian_noise(img, 0, 20)
-        harris_corners = harris(img)
+        harris_corners = fast_corner(img_dir)#harris(img)
         initial_points = len(harris_corners)
         # TODO: implement outlier detection in harris_corners
         # harris_corners = outliers_z_score(harris_corners, z_score_thshd = .75)

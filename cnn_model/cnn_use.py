@@ -209,9 +209,9 @@ class CNN_gate:
         cv2.destroyAllWindows()
 
 if __name__ == "__main__":
-    path = "/home/kit/projects/find-me/cnn_model/models_3_5/compressor_case_16.ckpt"
-    main = "/home/kit/projects/find-me/data/cnn_data4/inputs_mod"
-    film = "/home/kit/projects/find-me/data/combined/1output.avi"
+    path = "C:\\Users\Daniel\Downloads\AE3200 Design Synthesis (201718 Q4)\Final\\find-me\cnn_model\models\compressor_case_16.ckpt"
+    main = "C:\\Users\Daniel\Downloads\AE3200 Design Synthesis (201718 Q4)\Final\\find-me\data\cnn_data4\inputs_mod"
+    film = "C:\\Users\Daniel\Downloads\AE3200 Design Synthesis (201718 Q4)\Final\\find-me\data\combined\\1output.avi"
     t = CNN_gate()
     t.restore_model(path)
     # cap = cv2.VideoCapture(film)

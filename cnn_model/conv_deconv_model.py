@@ -148,8 +148,6 @@ if __name__ == "__main__":
             shuffle(files)
             input_gen = image_generator_nikita(input_dir, files, '.png','.jpg', batch_size)
             target_gen = image_generator_nikita(output_dir, files, '.png','.jpg', batch_size, bw=True)
-            # input_gen = image_generator(input_dir, '.png', batch_size)
-            # target_gen = image_generator(output_dir, '.png', batch_size, bw=True)
             for j, (input_images, target_images) in enumerate(zip(input_gen, target_gen)):
                 print("Iteration {} of epoch {} (total its = {})".format(j, i, global_it))
                 if global_it % 1 == 0:
@@ -157,6 +155,7 @@ if __name__ == "__main__":
                                                             target_layer: target_images})
                     writer.add_summary(s, global_it)
                     writer.flush()
+
                 train_operator.run(feed_dict={input_layer: input_images,
                                               target_layer: target_images})
                 global_it += 1
