@@ -7,7 +7,6 @@ from scipy import stats
 import glob
 import re
 from src.standard_algs import *
-from src.snake_check import *
 from src.benchmark import Benchmark
 from src.fast_cnn import fast_corner
 class Harris_detector:
