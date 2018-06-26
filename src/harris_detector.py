@@ -191,13 +191,13 @@ class Harris_detector:
         return corners
 
 
-    def find_gate(self,img_dir, plott=True, verbosity=True,num=0):
+    def find_gate(self,img_dir, plott=False, verbosity=True,num=0):
         # corners_ordered = [0, 0], [0, 0], [0, 0], [0, 0]
         img = cv2.imread(img_dir)
         self.img_size = img.shape
         # img =  cv2.GaussianBlur(img, (11, 11), sigmaX=10, sigmaY=10)
         # img = gaussian_noise(img, 0, 20)
-        harris_corners = fast_corner(img_dir)#harris(img)
+        harris_corners = harris(img)#fast_corner(img_dir)#
         initial_points = len(harris_corners)
         # TODO: implement outlier detection in harris_corners
         # harris_corners = outliers_z_score(harris_corners, z_score_thshd = .75)
