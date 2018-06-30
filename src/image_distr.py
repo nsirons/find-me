@@ -42,7 +42,7 @@ class DistortImages:
         for img_name, img in self.images:
             for func in kwargs:
                 if func != "compression":
-                    self.__class__.__dict__[func].__func__(img_name, img, save_path, kwargs[func])
+                    self.__class__.__dict__[func].__func__(img_name, img, save_path, *kwargs[func])
                 else:
                     self.compression(img_name, save_path, kwargs[func])
 
@@ -112,11 +112,11 @@ class DistortImages:
 if __name__ == "__main__":
 
     # path = "../data/cad_renders/GateRenders.jpg"
-    path_load = "../data/cad_renders5_bench"
-    save_path = "../data/cad_renders5_dist"
+    path_load = "../data/cad_renders2_new"
+    save_path = "../data/cad_renders2_dist"
 
     d = DistortImages()
     d.load(path_load, ".jpg")
-    d.distort(save_path, blur=(3,5,10), compression=np.arange(5,15,1, dtype=np.uint8).tolist(), dilation=(1,3,5), erosion=(1,3,5))
-
+    # d.distort(save_path, blur=(3,5,10), compression=np.arange(5,15,1, dtype=np.uint8).tolist(), dilation=(1,3,5), erosion=(1,3,5))
+    d.distort(save_path, blur=((5,10,20,50,100),(7,7)))
 

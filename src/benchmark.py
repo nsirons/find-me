@@ -35,7 +35,7 @@ class Benchmark:
         self.validation_data_path.append(path)
         label_file = tuple(filter(lambda x: 'txt' in x, os.listdir(path)))
         if len(label_file) != 1:
-            raise FileNotFoundError("Invalid path: {}".format(path))
+            raise FileNotFoundError("Invalid path (not text file is there): {}".format(path))
         with open("{}/{}".format(path, label_file[0]), mode='r') as csvfile:
             reader = csv.DictReader(csvfile, dialect="excel-tab")
             for row in reader:
@@ -102,7 +102,6 @@ class Benchmark:
                 if bool(int(self.validation_data[dataset_id][file]['gate'])) == gate_det:
                     if bool(int(self.validation_data[dataset_id][file]['gate'])):
                         # Gate is present and detected
-                        self.current_result[dataset_id][file]["GD"] = "TP"
                         self.current_result[dataset_id][file]["x0"] = abs(p0[0] - float(self.validation_data[dataset_id][file]["x0"]))
                         self.current_result[dataset_id][file]["x1"] = abs(p1[0] - float(self.validation_data[dataset_id][file]["x1"]))
                         self.current_result[dataset_id][file]["x2"] = abs(p2[0] - float(self.validation_data[dataset_id][file]["x2"]))
@@ -111,6 +110,15 @@ class Benchmark:
                         self.current_result[dataset_id][file]["y1"] = abs(p1[1] - float(self.validation_data[dataset_id][file]["y1"]))
                         self.current_result[dataset_id][file]["y2"] = abs(p2[1] - float(self.validation_data[dataset_id][file]["y2"]))
                         self.current_result[dataset_id][file]["y3"] = abs(p3[1] - float(self.validation_data[dataset_id][file]["y3"]))
+                        x_list = tuple(filter(lambda x: x is not None, [i if float(self.validation_data[dataset_id][file]["x" + str(i)]) != 0 else None for i in range(4)]))
+                        y_list = tuple(filter(lambda x: x is not None, [i if float(self.validation_data[dataset_id][file]["y" + str(i)]) != 0 else None for i in range(4)]))
+                        xs = [self.current_result[dataset_id][file]["x"+str(i)] for i in x_list]
+                        ys = [self.current_result[dataset_id][file]["y"+str(i)] for i in y_list]
+                        if np.max(xs) >50 or np.max(ys) > 50:
+                            self.current_result[dataset_id][file]["GD"] = "FN"
+                        else:
+                            self.current_result[dataset_id][file]["GD"] = "TP"
+
                     else:
                         # Gate is absent and not detected
                         self.current_result[dataset_id][file]["GD"] = "TN"
@@ -181,21 +189,37 @@ class Benchmark:
 
 
 if __name__ == "__main__":
+    # harris 26.66
+    # template 33.33
     path2 = "../data/cad_renders2_dist"
     path_bg = "../data/backgrounds"
-    path3 = "../data/cad_renders3_dist"
+    path3 = "../data/cad_renders"
     path5 = "../data/cad_renders5_dist"
-
+    # path6 = "/home/kit/projects/find-me/data/20June2/GateRenders360Rotation/GateRenders360Rotation_animation"
+    path_valid_35 = "../data/validation/3-5"
+    path_valid_360 = "../data/validation/3-60"
+    path_valid_53 = "../data/validation/5-3"
+    path_valid_560 = "../data/validation/5-60"
     from src.template_matching import TemplateMatching
+    from src.harris_detector import Harris_detector
+
+    harrs = Harris_detector()
+
     path_corners = "../data/corners"
     tm = TemplateMatching()
     tm.load_corners(path_corners)
 
     b = Benchmark(tm)
+    b.load(path_valid_35)
+    b.load(path_valid_360)
+    b.load(path_valid_53)
+    b.load(path_valid_560)
+
     # b.load(path_bg)
     # b.load(path2)
     # b.load(path3)
-    b.load(path5)
-    b.test(None, "cv2.TM_CCOEFF_NORMED", 0.95)
+    # b.load(path)
+    a = b.test(None, "cv2.TM_CCORR_NORMED", 0.95)
     print(b)
-    b.false_positive_curve()
+    print(a)
+    # b.false_positive_curve()

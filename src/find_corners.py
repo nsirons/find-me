@@ -9,21 +9,18 @@ import csv
 # TODO: Be able tochange Camera Center, shifts and rotations
 # http://www.songho.ca/opengl/gl_projectionmatrix.html - Clear explanation of Perspective Frustum
 # Gate information
-CAMERA_RES = (1280, 720)
+
 GATE_WIDTH = 1.4
 FOV = 105 /2 * np.pi / 180
-CAMERA_CENTER_PX = np.array([[1280 // 2 ], [ 720 // 2 ], [0]])
-# SHIFT_Y = 0.15523613963039012
-SHIFT_Y = 0.15
-SHIFT_X = 0
+
 
 # TODO : Change parameters (n,f to better values?)
 # Camera planes parameters
 n = 24.3 ** 10**-3  # Near plane
-t = np.tan(FOV / 2 ) * n  # right
-r = 1280 / 720 * t  # top
+t = np.tan(FOV) * n  # right
+r = 512 / 288 * t  # top
 f = 10  # Far plane
-scale = 1 / np.tan(FOV / 2)
+# scale = 1 / np.tan(FOV /2)
 # Perspective transformation matrix
 M = np.array([[n / r, 0, 0, 0],
               [0, n / t, 0, 0],
@@ -60,7 +57,7 @@ def get_corner(R, alpha, beta, POINT_REAL):
     # point_real_rot = POINT_REAL - camera_pos
     # point_real_rot = POINT_REAL
     # print(rot_x(alpha*np.pi / 180) @ rot_y(beta*np.pi / 180) @ POINT_REAL)
-    point_real_rot = np.vstack((point_real_rot * np.tan(FOV/2)*R * 2 / 1280, 1))
+    point_real_rot = np.vstack((point_real_rot * np.tan(FOV/2)*R * 2 / 512, 1))
     # print(point_real_rot)
     c_c = M @ point_real_rot
     # print(c_c)
@@ -68,7 +65,14 @@ def get_corner(R, alpha, beta, POINT_REAL):
     return corner
 
 
-def generate_label_file(path, ext, with_gate):
+def generate_label_file(path, ext, with_gate,*,camera_res,shift_y, shift_x):
+    CAMERA_RES = camera_res
+    CAMERA_CENTER_PX = np.array([[CAMERA_RES[0] // 2], [CAMERA_RES[1] // 2], [0]])
+    # SHIFT_Y = 0.15523613963039012
+    # SHIFT_Y = -0.15
+    # SHIFT_X = 0.081451
+    SHIFT_Y = shift_y
+    SHIFT_X = shift_x
     # gi = GeneralImage(path)
     print("Generating corner position for {}".format(path))
     stored_labels = []
@@ -81,12 +85,11 @@ def generate_label_file(path, ext, with_gate):
             R = float(img_lab[key]['R'])
             alpha = float(img_lab[key]['alpha'])
             beta = float(img_lab[key]['beta'])
-
-            SHIFT_X = 0.*np.sin(beta*2)
-            POINT_REAL1 = np.array([[GATE_WIDTH / 2 - SHIFT_X], [GATE_WIDTH / 2 - SHIFT_Y], [-R]])
-            POINT_REAL2 = np.array([[-GATE_WIDTH / 2 - SHIFT_X], [GATE_WIDTH / 2 - SHIFT_Y], [-R]])
-            POINT_REAL3 = np.array([[-GATE_WIDTH / 2 - SHIFT_X], [-GATE_WIDTH / 2 - SHIFT_Y], [-R]])
-            POINT_REAL4 = np.array([[GATE_WIDTH / 2 - SHIFT_X], [-GATE_WIDTH / 2 - SHIFT_Y], [-R]])
+            SHIFT_X = shift_x*np.sin(beta*np.pi/180*2)
+            POINT_REAL1 = np.array([[GATE_WIDTH / 2 + SHIFT_X], [GATE_WIDTH / 2 + SHIFT_Y], [-R]])
+            POINT_REAL2 = np.array([[-GATE_WIDTH / 2 + SHIFT_X], [GATE_WIDTH / 2 + SHIFT_Y], [-R]])
+            POINT_REAL3 = np.array([[-GATE_WIDTH / 2 + SHIFT_X], [-GATE_WIDTH / 2 + SHIFT_Y], [-R]])
+            POINT_REAL4 = np.array([[GATE_WIDTH / 2 + SHIFT_X], [-GATE_WIDTH / 2 + SHIFT_Y], [-R]])
 
             x1, y1, z1 = get_corner(R,  alpha, beta, POINT_REAL1)
             x2, y2, z2 = get_corner(R,  alpha, beta, POINT_REAL2)
@@ -101,8 +104,8 @@ def generate_label_file(path, ext, with_gate):
             # y2 = f * POINT_REAL2[1] / POINT_REAL2[2]
             # y3 = f * POINT_REAL3[1] / POINT_REAL3[2]
             # y4 = f * POINT_REAL4[1] / POINT_REAL4[2]
-            xs = np.array([x1, x4, x3, x2, x1])
-            ys = np.array([y1, y4, y3, y2, y1])
+            xs = 1280/512*np.array([x1, x4, x3, x2, x1])
+            ys = 1280/512*np.array([y1, y4, y3, y2, y1])
 
             xs = CAMERA_CENTER_PX[0] + xs*CAMERA_RES[0] / 2 # TODO: change name
             ys = CAMERA_CENTER_PX[1] + ys*CAMERA_RES[1] / 2
@@ -116,8 +119,8 @@ def generate_label_file(path, ext, with_gate):
 
                 plt.subplot(3, 3, counter)
 
-                plt.plot(xs, ys, color='red')
-
+                plt.plot(xs, ys, color='red',label=R)
+                plt.legend()
                 font = cv2.FONT_HERSHEY_SIMPLEX
                 img = cv2.imread(os.path.join(path, img_lab[key]["name"]))
                 cv2.putText(img, 'c0', (xs[0], ys[0]), font, 4, (255, 255, 255), 2, cv2.LINE_AA)
@@ -146,9 +149,14 @@ def generate_label_file(path, ext, with_gate):
 
 def copy_images(from_path, to_path):
     store_stash = []
-    for file_name in os.listdir(from_path):
+    import random
+    files = random.choices(os.listdir(from_path), k=15)
+    for file_name in files:
         if file_name[-4:] != ".txt":
-            copyfile(os.path.join(from_path, file_name), os.path.join(to_path, file_name))
+            # copyfile(os.path.join(from_path, file_name), os.path.join(to_path, file_name))
+            img = cv2.imread(os.path.join(from_path, file_name))
+            img = cv2.resize(img, (512, 288))
+            cv2.imwrite(os.path.join(to_path, file_name), img)
         else:
             with open(os.path.join(from_path, file_name), mode='r') as csvfile:
                 reader = csv.DictReader(csvfile, dialect="excel-tab")
@@ -161,9 +169,21 @@ def copy_images(from_path, to_path):
                     writer.writerow(line)
 
 if __name__ == "__main__":
+    bg_path = "../data/bg_less"
+    path_valid_35 = "../data/validation/3-5"
+    path_valid_360 = "../data/validation/3-60"
+    path_valid_53 = "..data/validation/5-3"
+    path_valid_560 = "../data/validation/5-60"
     # for i in (2,3,5):
         # path = "../data/cad_renders{}_dist".format(i)
     # path = "../data/backgrounds"
     #     generate_label_file(path, '.jpg', True)
-    generate_label_file("../data/cad_renders", '.jpg', True)
-    # copy_images("../data/backgrounds", "../data/cad_renders2_dist")
+    # path = '../data/validation/5-3'
+    # generate_label_file(path, '.jpg', True, camera_res=(512, 288), shift_y=-0.0, shift_x=-np.tan(FOV)*2*20./512)  # by radius, and around 20px
+    # generate_label_file(bg_path, '.jpg', False)
+    generate_label_file(bg_path, '.jpg', False, camera_res=(512, 288), shift_y=-0.0, shift_x=-np.tan(FOV) * 2 * 20. / 512)
+    copy_images(bg_path, path_valid_35)
+    copy_images(bg_path, path_valid_360)
+    copy_images(bg_path, path_valid_53)
+    copy_images(bg_path, path_valid_560)
+

@@ -2,6 +2,7 @@ import os
 from itertools import product
 import re
 from collections import defaultdict
+from shutil import copyfile
 
 
 class ImagePreProc:
@@ -76,7 +77,10 @@ class ImagePreProc:
         template_name = "img{i:05d}_" + '_'.join([str(key)+"{{:4.5f}}".format() for key in keys]) + "{ext}"
         for i, combination in enumerate(combos):
             new_name = template_name.format(*combination, i=i, ext=ext)
-            os.rename(os.path.join(self.__save_path, files[i]), os.path.join(self.__path, new_name))
+            if self.__save_path == self.__path:
+                os.rename(os.path.join(self.__path, files[i]), os.path.join(self.__save_path, new_name))
+            else:
+                copyfile(os.path.join(self.__path, files[i]), os.path.join(self.__save_path, new_name))
 
     def get_images(self):
         return self.images_labels
@@ -97,11 +101,12 @@ class ImagePreProc:
 
 if __name__ == "__main__":
     import numpy as np
-    path = "../data/cad_renders"
+    path = "/home/kit/projects/find-me/data/GateRenders 6/5-60"
+    save_path = "/home/kit/projects/find-me/data/validation/5-60"
     rn = ImagePreProc()
 
     # rn.rename(path, {"R":(0,[3]), "alpha":(1, (0,)), "beta": (2, np.linspace(0,90,60))})
-    rn.rename(path, {"R": (0, [3]), "alpha": (1, (0,)), "beta": (2,(30,0,60,5))})
+    rn.rename(path, {"R": (0, (5,)), "alpha": (1, (0,)), "beta": (2, np.linspace(60,0,15))}, save_path=save_path)
     # rn.load(path)
     # print(rn)
     # print(rn.get_images())
